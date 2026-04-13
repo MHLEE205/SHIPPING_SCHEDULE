@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LEENAI Shipping Schedule 送付ツール v2.6</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --navy:    #0f2044;
+    --blue:    #1a5cb8;
+    --sky:     #3a8ee6;
+    --accent:  #f0a500;
+    --green:   #19a86a;
+    --red:     #d93025;
+    --bg:      #f4f7fc;
+    --card:    #ffffff;
+    --border:  #dce5f0;
+    --text:    #1a2640;
+    --muted:   #7a8fa8;
+    --row-alt: #f8fafd;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--navy);
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,.25);
+  }
+  header .logo {
+    display: flex; align-items: center; gap: 12px;
+  }
+  header .logo-icon {
+    width: 34px; height: 34px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  header h1 {
+    font-size: 1rem; font-weight: 600;
+    color: #fff; letter-spacing: .02em;
+  }
+  header h1 span { color: var(--accent); }
+  .version {
+    font-family: 'DM Mono', monospace;
+    font-size: .72rem; color: #7a9cbf;
+    background: rgba(255,255,255,.07);
+    padding: 4px 10px; border-radius: 20px;
+  }
+
+  /* ── MAIN ── */
+  main { max-width: 1100px; margin: 0 auto; padding: 28px 24px 60px; }
+
+  /* ── STEP CARD ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 26px;
+    margin-bottom: 18px;
+    box-shadow: 0 1px 6px rgba(15,32,68,.06);
+  }
+  .card-title {
+    font-size: .8rem; font-weight: 600;
+    color: var(--muted); letter-spacing: .08em;
+    text-transform: uppercase; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-title .step-num {
+    width: 22px; height: 22px;
+    background: var(--blue); color: #fff;
+    border-radius: 50%; font-size: .72rem;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+  }
+
+  /* ── FOLDER AREA ── */
+  .folder-row {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 18px; border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: .85rem; font-weight: 500;
+    border: none; cursor: pointer;
+    transition: all .15s;
+  }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: var(--sky); }
+  .btn-accent  { background: var(--accent); color: var(--navy); }
+  .btn-accent:hover { background: #fbb72c; }
+  .btn-ghost {
+    background: transparent; color: var(--blue);
+    border: 1.5px solid var(--border);
+  }
+  .btn-ghost:hover { border-color: var(--sky); background: #eef4ff; }
+  .btn-danger { background: var(--red); color: #fff; }
+  .btn-danger:hover { background: #c0271f; }
+  .btn-green  { background: var(--green); color: #fff; }
+  .btn-green:hover { background: #159058; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+  #folderStatus {
+    font-size: .82rem; color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    background: var(--row-alt);
+    padding: 7px 14px; border-radius: 6px;
+    border: 1px solid var(--border);
+    flex: 1; min-width: 0;
+  }
+  #folderStatus.ok { color: var(--green); border-color: #b3e8d0; background: #f0fbf6; }
+  #errorMsg {
+    color: var(--red); font-size: .8rem; margin-top: 8px;
+    display: none;
+    background: #fff4f3; border: 1px solid #f9c0bb;
+    border-radius: 6px; padding: 8px 12px;
+  }
+
+  /* ── SUMMARY BAR ── */
+  #summaryBar {
+    display: none;
+    gap: 16px; flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+  .stat-pill {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 18px;
+    font-size: .82rem; color: var(--muted);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .stat-pill strong { color: var(--text); font-size: 1.1rem; font-weight: 600; }
+
+  /* ── CONTROLS ── */
+  #controls {
+    display: none;
+    align-items: center; gap: 10px;
+    flex-wrap: wrap; margin-bottom: 14px;
+  }
+  #searchBox {
+    flex: 1; min-width: 180px;
+    padding: 8px 14px; border-radius: 8px;
+    border: 1.5px solid var(--border);
+    font-family: 'DM Sans', sans-serif;
+    font-size: .85rem; outline: none;
+    transition: border .15s;
+  }
+  #searchBox:focus { border-color: var(--sky); }
+
+  /* ── TABLE ── */
+  #tableWrap { display: none; overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+  thead th {
+    background: var(--navy); color: #cde; padding: 10px 12px;
+    text-align: left; font-weight: 500; font-size: .75rem;
+    letter-spacing: .05em; white-space: nowrap;
+    position: sticky; top: 0;
+  }
+  thead th:first-child { border-radius: 10px 0 0 0; }
+  thead th:last-child  { border-radius: 0 10px 0 0; }
+  thead th input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; }
+  tbody tr { transition: background .1s; }
+  tbody tr:nth-child(even) { background: var(--row-alt); }
+  tbody tr:hover { background: #eef4ff; }
+  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tbody td:first-child { text-align: center; }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 20px;
+    font-size: .71rem; font-weight: 600; letter-spacing: .03em;
+  }
+  .badge-agent    { background: #dbeafe; color: #1d4ed8; }
+  .badge-importer { background: #dcfce7; color: #15803d; }
+  .badge-direct   { background: #fef3c7; color: #92400e; }
+  .badge-nomail   { background: #fee2e2; color: #991b1b; }
+
+  .email-cell {
+    font-family: 'DM Mono', monospace;
+    font-size: .72rem; color: var(--muted);
+    max-width: 240px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* ── SEND PANEL ── */
+  #sendPanel {
+    display: none;
+    position: sticky; bottom: 0;
+    background: var(--navy);
+    border-top: 2px solid var(--accent);
+    padding: 14px 32px;
+    align-items: center; gap: 14px;
+    z-index: 99;
+    box-shadow: 0 -4px 20px rgba(0,0,0,.2);
+  }
+  #sendPanel .sel-info {
+    color: #aac; font-size: .85rem; flex: 1;
+  }
+  #sendPanel .sel-info strong { color: var(--accent); font-size: 1.1rem; }
+
+  /* ── PROGRESS ── */
+  #progressWrap { display: none; margin-top: 14px; }
+  .progress-bar-outer {
+    width: 100%; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;
+  }
+  .progress-bar-inner {
+    height: 100%; background: var(--green); border-radius: 4px;
+    transition: width .3s;
+  }
+  #progressLog {
+    margin-top: 10px; max-height: 160px; overflow-y: auto;
+    font-family: 'DM Mono', monospace; font-size: .74rem;
+    color: var(--muted); line-height: 1.8;
+  }
+  .log-ok   { color: var(--green); }
+  .log-warn { color: var(--accent); }
+  .log-err  { color: var(--red); }
+
+  /* ── MODAL (메일 미리보기) ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.45); z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--card); border-radius: 14px;
+    width: 680px; max-width: 96vw; max-height: 90vh;
+    overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  }
+  .modal-header {
+    background: var(--navy); color: #fff;
+    padding: 16px 22px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-header h3 { font-size: .95rem; font-weight: 600; }
+  .modal-close {
+    background: none; border: none; color: #aac;
+    font-size: 1.3rem; cursor: pointer; padding: 0 4px;
+    line-height: 1;
+  }
+  .modal-close:hover { color: #fff; }
+  .modal-body { padding: 20px 22px; overflow-y: auto; flex: 1; }
+  .modal-field { margin-bottom: 12px; }
+  .modal-field label {
+    display: block; font-size: .72rem; font-weight: 600;
+    color: var(--muted); margin-bottom: 4px; text-transform: uppercase;
+  }
+  .modal-field .val {
+    font-size: .83rem; color: var(--text);
+    background: var(--row-alt); border: 1px solid var(--border);
+    border-radius: 6px; padding: 7px 12px;
+    font-family: 'DM Mono', monospace;
+    word-break: break-all;
+  }
+  .modal-footer {
+    padding: 14px 22px; border-top: 1px solid var(--border);
+    display: flex; gap: 10px; justify-content: flex-end;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">✈</div>
+    <h1>LEENAI <span>Shipping Schedule</span> 送付ツール</h1>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div id="authStatus" style="font-size:.78rem;color:#7a9cbf;font-family:'DM Mono',monospace">⚪ 未ログイン</div>
+    <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()"
+      style="color:#aac;border-color:#334;font-size:.8rem;padding:6px 14px">
+      🔑 Outlookログイン
+    </button>
+    <div class="version">Shipping Schedule 送付ツール v2.6 (2026-04-13)</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- STEP 1: フォルダ選択 -->
+  <div class="card">
+    <div class="card-title"><span class="step-num">1</span> Excelファイル読み込み</div>
+    <div class="folder-row">
+      <button class="btn btn-primary" onclick="selectFolder()">📂 フォルダを選択</button>
+      <div id="folderStatus">SharePointの同期フォルダを選択してください</div>
+    </div>
+    <div id="errorMsg"></div>
+    <div id="progressWrap">
+      <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar" style="width:0%"></div></div>
+      <div id="progressLog"></div>
+    </div>
+  </div>
+
+  <!-- STEP 2: バイヤー一覧 -->
+  <div id="summaryBar" style="display:flex">
+    <div class="stat-pill">バイヤー数 <strong id="statBuyers">0</strong></div>
+    <div class="stat-pill">全データ <strong id="statRows">0</strong> 行</div>
+    <div class="stat-pill">送付先あり <strong id="statMailable">0</strong></div>
+    <div class="stat-pill">送付先なし <strong id="statNomail">0</strong></div>
+  </div>
+
+  <div id="controls" style="display:flex">
+    <input id="searchBox" type="text" placeholder="🔍 バイヤー名で絞り込み..." oninput="filterTable()">
+    <button class="btn btn-ghost" onclick="selectAll(true)">✅ 全選択</button>
+    <button class="btn btn-ghost" onclick="selectAll(false)">□ 全解除</button>
+    <button class="btn btn-ghost" onclick="selectMailable()">📧 送付可能のみ選択</button>
+  </div>
+
+  <div id="tableWrap">
+    <table id="buyerTable">
+      <thead>
+        <tr>
+          <th><input type="checkbox" id="chkAll" onchange="toggleAll(this)"></th>
+          <th>バイヤー</th>
+          <th>Agent</th>
+          <th>送付タイプ</th>
+          <th>TO (送付先)</th>
+          <th>CC</th>
+          <th>データ数</th>
+          <th>ETD 範囲</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody id="buyerTbody"></tbody>
+    </table>
+  </div>
+
+</main>
+
+<!-- 送信パネル (sticky bottom) -->
+<div id="sendPanel" style="display:flex">
+  <div class="sel-info">選択中: <strong id="selCount">0</strong> 件</div>
+  <button class="btn btn-ghost" style="color:#aac;border-color:#334" onclick="previewSelected()">👁 内容確認</button>
+  <button class="btn btn-green" onclick="sendSelectedGraph()" id="btnGraphSend">📝 選択分を下書き保存</button>
+  <button class="btn btn-ghost" style="color:#aac;border-color:#334;font-size:.78rem" onclick="sendSelected()">mailto方式</button>
+</div>
+
+<!-- メールプレビュー Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitle">メール確認</h3>
+      <button class="modal-close" onclick="closeModalDirect()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModalDirect()">閉じる</button>
+      <button class="btn btn-ghost" style="font-size:.8rem" id="modalMailtoBtn">📤 mailto方式</button>
+      <button class="btn btn-green" id="modalSendBtn">📝 下書き保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── ポップアップ側: code を親ウィンドウに送信して自分を閉じる ──
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  const code  = params.get('code');
+  const state = params.get('state');
+  const error = params.get('error');
+  if (code || error) {
+    // 親ウィンドウに postMessage で送信
+    if (window.opener) {
+      window.opener.postMessage({ type: 'oauth_callback', code, state, error,
+        error_description: params.get('error_description') }, '*');
+      window.close();
+    }
+    // 親がいない場合はそのまま (念のため)
+    return;
+  }
+})();
+const FS_DB = 'leenai_shipping_schedule_v1';
+// Shipping_Schedule で始まる .xlsm を自動検出
+
+// ═══════════════════════════════════════════
+// OAuth2 PKCE 認証 (外部ライブラリ不要)
+// ═══════════════════════════════════════════
+const OAUTH = {
+  clientId:    'f071a165-5e9b-44bf-b6a1-baba654524db',
+  tenantId:    'a56988ff-c2b8-4df8-9727-889ad4205198',
+  scopes:      'Mail.Send User.Read offline_access',
+  redirectUri: 'https://mhlee205.github.io/SHIPPING_SCHEDULE/',
+};
+let graphToken   = null;
+let loggedInUser = null;
+
+function b64url(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
+}
+async function generatePKCE() {
+  const verifier  = b64url(crypto.getRandomValues(new Uint8Array(32)));
+  const challenge = b64url(await crypto.subtle.digest('SHA-256',
+    new TextEncoder().encode(verifier)));
+  return { verifier, challenge };
+}
+
+async function toggleAuth() {
+  if (graphToken) {
+    graphToken = null; loggedInUser = null;
+    localStorage.removeItem('leenai_ss_rt');
+    updateAuthUI(false);
+    return;
+  }
+  document.getElementById('authBtn').textContent = '⏳ ログイン中...';
+  document.getElementById('authBtn').disabled = true;
+  try {
+    await startOAuthFlow();
+  } catch(e) {
+    document.getElementById('authBtn').textContent = '🔑 Outlookログイン';
+    document.getElementById('authBtn').disabled = false;
+    if (e.message !== 'CANCELLED') alert('ログインエラー:\n' + e.message);
+  }
+}
+
+async function startOAuthFlow() {
+  const { verifier, challenge } = await generatePKCE();
+  const state = b64url(crypto.getRandomValues(new Uint8Array(16)));
+  sessionStorage.setItem('pkce_verifier', verifier);
+  sessionStorage.setItem('oauth_state',   state);
+
+  const authUrl = `https://login.microsoftonline.com/${OAUTH.tenantId}/oauth2/v2.0/authorize`
+    + `?client_id=${OAUTH.clientId}`
+    + `&response_type=code`
+    + `&redirect_uri=${encodeURIComponent(OAUTH.redirectUri)}`
+    + `&scope=${encodeURIComponent(OAUTH.scopes)}`
+    + `&state=${state}`
+    + `&code_challenge=${challenge}`
+    + `&code_challenge_method=S256`
+    + `&response_mode=query`
+    + `&prompt=consent`;
+
+  const W = 520, H = 640;
+  const L = Math.round(screen.width/2 - W/2);
+  const T = Math.round(screen.height/2 - H/2);
+  const popup = window.open(authUrl, 'mslogin',
+    `width=${W},height=${H},left=${L},top=${T},toolbar=no,menubar=no,scrollbars=yes`);
+
+  if (!popup) throw new Error('ポップアップがブロックされました。\n\n【解除方法】\nアドレスバー右側のポップアップアイコンをクリック\n→「https://mhlee205.github.io のポップアップを常に許可する」を選択\n→ もう一度ログインボタンをクリック');
+
+  await new Promise((resolve, reject) => {
+    const MAX = 5 * 60 * 1000;
+    const t0  = Date.now();
+    let handled = false;
+
+    // postMessage でコールバックを受け取る
+    function onMessage(event) {
+      if (handled) return;
+      if (!event.data || event.data.type !== 'oauth_callback') return;
+      handled = true;
+      window.removeEventListener('message', onMessage);
+      clearInterval(closedTimer);
+      const { code, state, error, error_description } = event.data;
+      if (error) { reject(new Error(error_description || error)); return; }
+      if (!code) { reject(new Error('認証コードが取得できませんでした。')); return; }
+      if (state !== sessionStorage.getItem('oauth_state')) {
+        reject(new Error('State不一致エラー。')); return;
+      }
+      exchangeCodeForToken(code).then(resolve).catch(reject);
+    }
+    window.addEventListener('message', onMessage);
+
+    // ポップアップが閉じられた場合の監視
+    const closedTimer = setInterval(() => {
+      if (handled) { clearInterval(closedTimer); return; }
+      if (Date.now() - t0 > MAX) {
+        clearInterval(closedTimer);
+        window.removeEventListener('message', onMessage);
+        try { popup.close(); } catch(e) {}
+        reject(new Error('タイムアウトしました。'));
+        return;
+      }
+      try {
+        if (popup.closed) {
+          clearInterval(closedTimer);
+          window.removeEventListener('message', onMessage);
+          if (!handled) reject(new Error('CANCELLED'));
+        }
+      } catch(e) {}
+    }, 500);
+  });
+}
+
+async function exchangeCodeForToken(code) {
+  const body = new URLSearchParams({
+    client_id:     OAUTH.clientId,
+    grant_type:    'authorization_code',
+    code,
+    redirect_uri:  OAUTH.redirectUri,
+    code_verifier: sessionStorage.getItem('pkce_verifier'),
+    scope:         OAUTH.scopes,
+  });
+  const resp = await fetch(
+    `https://login.microsoftonline.com/${OAUTH.tenantId}/oauth2/v2.0/token`,
+    { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body }
+  );
+  const data = await resp.json();
+  if (!resp.ok) throw new Error(data.error_description || data.error || 'Token取得失敗');
+  graphToken = data.access_token;
+  if (data.refresh_token) localStorage.setItem('leenai_ss_rt', data.refresh_token);
+  // ユーザー情報
+  const me = await (await fetch('https://graph.microsoft.com/v1.0/me',
+    { headers:{ 'Authorization': `Bearer ${graphToken}` } })).json();
+  loggedInUser = me.mail || me.userPrincipalName || 'ログイン済み';
+  updateAuthUI(true);
+}
+
+function updateAuthUI(loggedIn) {
+  const st  = document.getElementById('authStatus');
+  const btn = document.getElementById('authBtn');
+  if (loggedIn) {
+    st.textContent  = `🟢 ${loggedInUser}`;
+    st.style.color  = '#19a86a';
+    btn.textContent = '🔓 ログアウト';
+  } else {
+    st.textContent  = '⚪ 未ログイン';
+    st.style.color  = '#7a9cbf';
+    btn.textContent = '🔑 Outlookログイン';
+  }
+}
+
+// ── Graph API: メール送信 (添付ファイルあり) ──
+async function sendMailGraph(b) {
+  if (!graphToken) {
+    alert('先に「Outlookログイン」ボタンでログインしてください。');
+    return false;
+  }
+
+  const ymd = todayYMD();
+  const subject = `[SendOnly-Shipping Schedule notice] ${b.buyer}_${ymd}`;
+
+  // ── Contract / PO No. 組み立て ──
+  // CO_NO × PO_No の組合せを収集 (重複除去)
+  const contracts = [];
+  const poNos     = [];
+  const seen = new Set();
+  b.rows.forEach(r => {
+    const co = (r.coNo || '').toString().trim();
+    const po = (r.poNo || '').toString().trim();
+    if (co && !seen.has(co)) { seen.add(co); contracts.push(co); }
+    // PO_No が CO_NO と異なる場合のみ収集
+    if (po && po !== co && !poNos.includes(po)) poNos.push(po);
+  });
+
+  const contractLine = contracts.length
+    ? `  Contract / PO No. : ${contracts.join(' / ')}`
+    : '';
+  const poLine = poNos.length
+    ? `  PO No.            : ${poNos.join(' / ')}`
+    : '';
+  const infoBlock = [contractLine, poLine, `  Buyer             : ${b.buyer}`]
+    .filter(Boolean).join('\n');
+
+  const bodyText = [
+    `Dear Sir/Madam,`,
+    ``,
+    `Please kindly find the attached shipping schedule.`,
+    ``,
+    infoBlock,
+    ``,
+    `Please feel free to contact us if you have any questions.`,
+    ``,
+    `Thanks,`,
+    `Best regards,`,
+    ``,
+    `LEENEAR CORPORATION`,
+    `TEL: +81-3-3528-9850  FAX: +81-3-3528-9851`,
+    `E-mail: rcp@leenearcorp.com`,
+    `Web: www.leenearcorp.com`,
+    `─────────────────────────────────────────`,
+    `✦ Powered by LEENAI Automation System`,
+  ].join('\r\n');
+
+  // CC 組み立て
+  const ccAddresses = [b.emailCC, 'rcp@leenearcorp.com']
+    .flatMap(s => (s||'').split(';'))
+    .filter(Boolean)
+    .filter((v,i,a) => a.indexOf(v) === i)
+    .map(addr => ({emailAddress:{address:addr}}));
+
+  // Excel 生成 → Base64
+  const excelData = generateExcel(b);
+  const base64    = btoa(String.fromCharCode(...new Uint8Array(excelData)));
+  const fileName  = `Shipping Schedule_${b.buyer}_${ymd}.xlsx`;
+
+  const message = {
+    subject,
+    body:         { contentType: 'Text', content: bodyText },
+    toRecipients: [{ emailAddress: { address: b.emailTo } }],
+    ccRecipients: ccAddresses,
+    attachments:  [{
+      '@odata.type': '#microsoft.graph.fileAttachment',
+      name:          fileName,
+      contentType:   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      contentBytes:  base64
+    }]
+  };
+
+  // ⚠️ 現在は下書き保存モード (送信しない)
+  // 送信準備ができたら createMessage → send に変更すること
+  const resp = await fetch('https://graph.microsoft.com/v1.0/me/messages', {
+    method:  'POST',
+    headers: {
+      'Authorization': `Bearer ${graphToken}`,
+      'Content-Type':  'application/json'
+    },
+    body: JSON.stringify(message)
+  });
+
+  if (resp.status === 201) {
+    const draft = await resp.json();
+    return draft.id; // 下書きID
+  }
+
+  // トークン期限切れ → 再ログイン
+  if (resp.status === 401) {
+    graphToken = null;
+    updateAuthUI(false);
+    throw new Error('トークンが期限切れです。再度ログインしてください。');
+  }
+
+  const err = await resp.text();
+  throw new Error(`Graph API エラー (${resp.status}): ${err}`);
+}
+
+async function sendOneGraph(idx) {
+  const b = filteredData[idx];
+  if (!b || b.sendType === 'nomail') return;
+  if (!graphToken) { alert('先に「Outlookログイン」でログインしてください。'); return; }
+  try {
+    addLog(`📝 ${b.buyer}: 下書き保存中...`, '');
+    await sendMailGraph(b);
+    addLog(`✅ ${b.buyer}: Outlookの下書きに保存しました`, 'ok');
+  } catch(e) {
+    addLog(`❌ ${b.buyer}: ${e.message}`, 'err');
+    alert(`失敗 (${b.buyer}): ${e.message}`);
+  }
+}
+
+async function sendSelectedGraph() {
+  if (!graphToken) {
+    alert('先に「Outlookログイン」ボタンでログインしてください。');
+    return;
+  }
+  const targets = buyerData.filter(b => b.selected && b.sendType !== 'nomail');
+  if (!targets.length) { alert('送付可能なバイヤーが選択されていません。'); return; }
+
+  document.getElementById('progressWrap').style.display = 'block';
+  setProgress(0, '');
+  log('');
+
+  let ok = 0, ng = 0;
+  for (let i = 0; i < targets.length; i++) {
+    const b = targets[i];
+    setProgress(Math.round((i / targets.length) * 100), `${b.buyer} 送信中... (${i+1}/${targets.length})`);
+    try {
+      await sendMailGraph(b);
+      addLog(`✅ ${b.buyer}: 下書き保存完了`, 'ok');
+      ok++;
+    } catch(e) {
+      addLog(`❌ ${b.buyer}: ${e.message}`, 'err');
+      ng++;
+    }
+    await sleep(500);
+  }
+  setProgress(100, `完了 (下書き保存): 成功 ${ok}件 / 失敗 ${ng}件`);
+}
+
+// ═══════════════════════════════════════════
+// 状態
+// ═══════════════════════════════════════════
+let folderHandle = null;
+let buyerData = [];   // [{buyer, agent, rows, emailTo, emailCC, sendType}]
+let filteredData = [];
+let currentModalBuyer = null;
+
+// ═══════════════════════════════════════════
+// IndexedDB: フォルダハンドル保存
+// ═══════════════════════════════════════════
+async function openDb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(FS_DB, 1);
+    r.onupgradeneeded = e => e.target.result.createObjectStore('handles');
+    r.onsuccess = e => res(e.target.result);
+    r.onerror = e => rej(e.target.error);
+  });
+}
+async function dbGet(key) {
+  const db = await openDb();
+  return new Promise((res, rej) => {
+    const r = db.transaction('handles','readonly').objectStore('handles').get(key);
+    r.onsuccess = e => res(e.target.result);
+    r.onerror = e => rej(e.target.error);
+  });
+}
+async function dbSet(key, val) {
+  const db = await openDb();
+  return new Promise((res, rej) => {
+    const r = db.transaction('handles','readwrite').objectStore('handles').put(val, key);
+    r.onsuccess = () => res();
+    r.onerror = e => rej(e.target.error);
+  });
+}
+
+// 起動時: 保存済みハンドル復元
+window.addEventListener('load', async () => {
+  try {
+    const h = await dbGet('folder');
+    if (!h) return;
+    const perm = await h.queryPermission({ mode: 'read' });
+    if (perm === 'granted') {
+      folderHandle = h;
+      setFolderStatus(h.name, true);
+      await loadFromFolder();
+    } else {
+      setFolderStatus(h.name, false);
+      folderHandle = h;
+    }
+  } catch(e) {}
+});
+
+// ═══════════════════════════════════════════
+// フォルダ選択
+// ═══════════════════════════════════════════
+async function selectFolder() {
+  if (!window.showDirectoryPicker) {
+    showError('このブラウザはフォルダ選択に対応していません。Chrome/Edgeをご使用ください。');
+    return;
+  }
+  try {
+    const h = await window.showDirectoryPicker({ mode: 'read' });
+    folderHandle = h;
+    await dbSet('folder', h);
+    setFolderStatus(h.name, true);
+    await loadFromFolder();
+  } catch(e) {
+    if (e.name !== 'AbortError') showError('フォルダ選択エラー: ' + e.message);
+  }
+}
+
+function setFolderStatus(name, ok) {
+  const el = document.getElementById('folderStatus');
+  el.textContent = ok ? `📂 ${name}  ✅ 読み込み済み` : `📂 ${name}  （権限確認中）`;
+  el.className = ok ? 'ok' : '';
+}
+
+// ═══════════════════════════════════════════
+// Excelファイル読み込み
+// ═══════════════════════════════════════════
+async function loadFromFolder() {
+  showError('');
+  setProgress(0, '');
+  log('');
+
+  // Shipping_Schedule で始まる .xlsm を自動検出
+  let fileHandle = null;
+  let foundName = '';
+
+  async function scanForFile(handle) {
+    for await (const [name, entry] of handle.entries()) {
+      if (entry.kind === 'file'
+          && name.toLowerCase().startsWith('shipping schedule')
+          && (name.toLowerCase().endsWith('.xlsm') || name.toLowerCase().endsWith('.xlsx'))) {
+        fileHandle = entry;
+        foundName  = name;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  try {
+    await scanForFile(folderHandle);
+  } catch(e) {
+    const perm = await folderHandle.requestPermission({ mode: 'read' });
+    if (perm !== 'granted') { showError('フォルダへのアクセス権限がありません。'); return; }
+    await scanForFile(folderHandle);
+  }
+
+  if (!fileHandle) {
+    showError('⚠️ フォルダ内に「Shipping_Schedule〜.xlsm」が見つかりません。\n正しい SharePoint 同期フォルダを選択してください。');
+    return;
+  }
+
+  addLog(`✅ ${foundName} を検出`, 'ok');
+  setProgress(20, 'Excelを読み込み中...');
+
+  try {
+    const file = await fileHandle.getFile();
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(new Uint8Array(buf), { type: 'array', raw: true });
+
+    setProgress(50, 'データを解析中...');
+    parseWorkbook(wb);
+    setProgress(100, '完了');
+    document.getElementById('progressWrap').style.display = 'none';
+  } catch(e) {
+    showError('Excelの読み込みに失敗しました。\n手動でExcelファイルを開き、更新をして下さい。\nエラー: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════
+// データ解析
+// ═══════════════════════════════════════════
+function parseWorkbook(wb) {
+  // シート読み込み
+  const scheduleSheet = wb.Sheets['LEENAI-schedule'];
+  const emailSheet    = wb.Sheets['E-mail'];
+
+  if (!scheduleSheet) { showError('「LEENAI-schedule」シートが見つかりません。'); return; }
+  if (!emailSheet)    { showError('「E-mail」シートが見つかりません。'); return; }
+
+  // LEENAI-schedule → rows (raw:true + 手動日付変換)
+  const rawRows = XLSX.utils.sheet_to_json(scheduleSheet, { defval: null, raw: true });
+  const scheduleRows = rawRows.map(r => ({
+    buyer:      r['Buyer']      || '',
+    agent:      r['Agent']      || '',
+    invoiceNo:  r['Invoice No.']|| '',
+    blNo:       r['BL No.']     || '',
+    bookingNo:  r['Booking No.']|| '',
+    vessel:     r['Vessel']     || '',
+    carrier:    r['Carrier']    || '',
+    pol:        r['POL']        || '',
+    pod:        r['POD']        || '',
+    container:  r['Container']  || '',
+    etd:        excelDateToStr(r['ETD']),
+    eta:        excelDateToStr(r['ETA']),
+    coNo:       r['CO_NO']      || '',
+    poNo:       r['PO_No']      || '',
+    item:       r['Item']       || '',
+    price:      r['Price']      || '',
+    quantity:   r['Quantity']   || '',
+    netW:       r['Net_W']      || '',
+    etdRaw:     toJsDate(r['ETD']),
+  })).filter(r => r.buyer);
+
+  addLog(`📊 スケジュールデータ: ${scheduleRows.length} 行`, 'ok');
+
+  // E-mail sheet → mailMap
+  const emailRows = XLSX.utils.sheet_to_json(emailSheet, { defval: null, raw: true });
+  // { key: {to, cc} }
+  // キー: "AGENT::BUYER" or "AGENT::" or "::BUYER"
+  const mailMap = {};
+  emailRows.forEach(r => {
+    const agent = (r['AGENT'] || '').toString().trim();
+    const buyer = (r['BUYER'] || '').toString().trim();
+    const emails = [
+      r['E-MAIL1'], r['E-MAIL2'], r['E-MAIL3'],
+      r['E-MAIL4'], r['E-MAIL5'], r['E-MAIL6'], r['E-MAIL7']
+    ].map(e => (e||'').toString().trim()).filter(Boolean);
+
+    const to  = emails[0] || '';
+    const cc  = emails.slice(1).join(';');
+    const key = `${agent}::${buyer}`;
+    mailMap[key] = { to, cc, agent, buyer };
+  });
+
+  addLog(`📧 メールマスター: ${emailRows.length} 件`, 'ok');
+
+  // バイヤーごとにグループ化
+  const groups = {};
+  scheduleRows.forEach(r => {
+    if (!groups[r.buyer]) groups[r.buyer] = [];
+    groups[r.buyer].push(r);
+  });
+
+  // 各グループを ETD 昇順ソート
+  Object.values(groups).forEach(rows => {
+    rows.sort((a, b) => {
+      if (!a.etdRaw && !b.etdRaw) return 0;
+      if (!a.etdRaw) return 1;
+      if (!b.etdRaw) return -1;
+      return a.etdRaw - b.etdRaw;
+    });
+  });
+
+  // メール解決 (Agent有: Agent行を優先、Agent+Buyer両方ある場合はImporter行)
+  buyerData = Object.entries(groups).map(([buyer, rows]) => {
+    const agent = (rows[0].agent || '').toString().trim();
+    const agentIsZero = agent === '0' || agent === '';
+
+    let resolved = null;
+    let sendType = '';
+
+    if (!agentIsZero) {
+      // Agent + Buyer 両方一致する行があるか (Importer直送)
+      const importerKey = `${agent}::${buyer}`;
+      if (mailMap[importerKey]) {
+        resolved = mailMap[importerKey];
+        sendType = 'importer';
+      } else {
+        // Agent のみの行
+        const agentKey = `${agent}::`;
+        if (mailMap[agentKey]) {
+          resolved = mailMap[agentKey];
+          sendType = 'agent';
+        }
+      }
+    } else {
+      // Agent なし → Buyer直送
+      const directKey = `::${buyer}`;
+      if (mailMap[directKey]) {
+        resolved = mailMap[directKey];
+        sendType = 'direct';
+      }
+    }
+
+    // ETD範囲
+    const validDates = rows.map(r => r.etdRaw).filter(Boolean);
+    const etdMin = validDates.length ? new Date(Math.min(...validDates)) : null;
+    const etdMax = validDates.length ? new Date(Math.max(...validDates)) : null;
+
+    return {
+      buyer,
+      agent: agentIsZero ? '' : agent,
+      rows,
+      emailTo:  resolved ? resolved.to  : '',
+      emailCC:  resolved ? resolved.cc  : '',
+      sendType: resolved ? sendType : 'nomail',
+      etdMin, etdMax,
+      selected: false,
+    };
+  });
+
+  // バイヤー名でソート
+  buyerData.sort((a,b) => a.buyer.localeCompare(b.buyer));
+  filteredData = [...buyerData];
+
+  renderStats();
+  renderTable();
+
+  document.getElementById('summaryBar').style.display = 'flex';
+  document.getElementById('controls').style.display   = 'flex';
+  document.getElementById('tableWrap').style.display  = 'block';
+  document.getElementById('sendPanel').style.display  = 'flex';
+}
+
+// ═══════════════════════════════════════════
+// 日付変換
+// ═══════════════════════════════════════════
+function toJsDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  if (typeof v === 'number') {
+    // Excel serial date
+    const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+    return d;
+  }
+  if (typeof v === 'string' && v.trim()) {
+    const d = new Date(v);
+    return isNaN(d) ? null : d;
+  }
+  return null;
+}
+
+function excelDateToStr(v) {
+  const d = toJsDate(v);
+  if (!d) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${y}/${m}/${dd}`;
+}
+
+function dateToYMD(d) {
+  if (!d) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${y}/${m}/${dd}`;
+}
+
+function todayYMD() {
+  return dateToYMD(new Date()).replace(/\//g,'');
+}
+
+// ═══════════════════════════════════════════
+// 統計
+// ═══════════════════════════════════════════
+function renderStats() {
+  document.getElementById('statBuyers').textContent  = buyerData.length;
+  document.getElementById('statRows').textContent    = buyerData.reduce((s,b)=>s+b.rows.length,0);
+  document.getElementById('statMailable').textContent= buyerData.filter(b=>b.sendType!=='nomail').length;
+  document.getElementById('statNomail').textContent  = buyerData.filter(b=>b.sendType==='nomail').length;
+}
+
+// ═══════════════════════════════════════════
+// テーブル描画
+// ═══════════════════════════════════════════
+function renderTable() {
+  const tbody = document.getElementById('buyerTbody');
+  tbody.innerHTML = '';
+
+  filteredData.forEach((b, idx) => {
+    const tr = document.createElement('tr');
+    tr.dataset.idx = idx;
+
+    const etdRange = (b.etdMin && b.etdMax)
+      ? `${dateToYMD(b.etdMin)} 〜 ${dateToYMD(b.etdMax)}`
+      : '—';
+
+    const typeBadge = {
+      agent:    '<span class="badge badge-agent">Agent</span>',
+      importer: '<span class="badge badge-importer">Importer直送</span>',
+      direct:   '<span class="badge badge-direct">Direct</span>',
+      nomail:   '<span class="badge badge-nomail">送付先なし</span>',
+    }[b.sendType] || '';
+
+    const toDisp = b.emailTo || '<span style="color:var(--red)">—</span>';
+    const ccDisp = b.emailCC
+      ? b.emailCC.split(';').filter(Boolean).join('<br>')
+      : '—';
+
+    tr.innerHTML = `
+      <td><input type="checkbox" ${b.selected?'checked':''} onchange="toggleRow(${idx},this)"></td>
+      <td><strong>${escHtml(b.buyer)}</strong></td>
+      <td style="color:var(--muted);font-size:.78rem">${escHtml(b.agent||'—')}</td>
+      <td>${typeBadge}</td>
+      <td class="email-cell" title="${escHtml(b.emailTo)}">${escHtml(b.emailTo||'—')}</td>
+      <td class="email-cell" style="font-size:.68rem" title="${escHtml(b.emailCC)}">${escHtml(b.emailCC ? b.emailCC.split(';').join('\n') : '—')}</td>
+      <td style="text-align:center">${b.rows.length}</td>
+      <td style="font-size:.76rem;white-space:nowrap">${etdRange}</td>
+      <td>
+        <button class="btn btn-ghost" style="font-size:.75rem;padding:5px 10px"
+          onclick="previewOne(${idx})">👁 確認</button>
+        ${b.sendType!=='nomail'
+          ? `<button class="btn btn-green" style="font-size:.75rem;padding:5px 10px;margin-left:4px"
+              onclick="sendOneGraph(${idx})">📝 下書き</button>`
+          : ''}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  updateSelCount();
+}
+
+function escHtml(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════
+// 選択系
+// ═══════════════════════════════════════════
+function toggleAll(chk) {
+  filteredData.forEach((b, idx) => {
+    b.selected = chk.checked;
+  });
+  // buyerDataの選択状態も同期
+  buyerData.forEach(b => {
+    if (filteredData.includes(b)) b.selected = chk.checked;
+  });
+  renderTable();
+}
+
+function toggleRow(idx, chk) {
+  filteredData[idx].selected = chk.checked;
+  updateSelCount();
+}
+
+function selectAll(v) {
+  filteredData.forEach(b => b.selected = v);
+  buyerData.forEach(b => b.selected = v);
+  renderTable();
+}
+
+function selectMailable() {
+  filteredData.forEach(b => b.selected = b.sendType !== 'nomail');
+  buyerData.forEach(b => b.selected = filteredData.includes(b) ? b.selected : false);
+  renderTable();
+}
+
+function updateSelCount() {
+  const n = buyerData.filter(b=>b.selected).length;
+  document.getElementById('selCount').textContent = n;
+}
+
+// ═══════════════════════════════════════════
+// 検索フィルタ
+// ═══════════════════════════════════════════
+function filterTable() {
+  const q = document.getElementById('searchBox').value.toLowerCase();
+  filteredData = q
+    ? buyerData.filter(b => b.buyer.toLowerCase().includes(q))
+    : [...buyerData];
+  renderTable();
+}
+
+// ═══════════════════════════════════════════
+// Excel 生成 (バイヤー別) - v3 양식
+// ═══════════════════════════════════════════
+function generateExcel(b) {
+  const wb2 = XLSX.utils.book_new();
+  const ws  = {};
+  const enc = (r,c) => XLSX.utils.encode_cell({r,c});
+
+  // ── 색상 / 스타일 ──
+  const NAVY  = '0F2044', LBLUE = 'D6E4F0', HBLUE = '2E75B6';
+  const WHITE = 'FFFFFF', GRAY  = 'F2F2F2', TOTAL = 'BDD7EE';
+
+  const fnt  = (bold=false, color='000000', sz=9) =>
+    ({bold, color:{rgb:color}, sz, name:'Arial'});
+  const fill = c => ({patternType:'solid', fgColor:{rgb:c}});
+  const aln  = (h='center',v='center',wrap=false) =>
+    ({horizontal:h, vertical:v, wrapText:wrap});
+  const bdr  = (style='thin', color='9DC3E6') => {
+    const s={style,color:{rgb:color}};
+    return {top:s,bottom:s,left:s,right:s};
+  };
+  const bdrMed = () => { const s={style:'medium',color:{rgb:NAVY}};
+    return {top:s,bottom:s,left:s,right:s}; };
+
+  const setC = (addr,v,s={}) => {
+    ws[addr] = {v, t: typeof v==='number'?'n':'s', s};
+  };
+  const setN = (addr,v,s={}) => {
+    ws[addr] = {v: Number(v)||0, t:'n', s};
+  };
+
+  // ── CO_NO × Item 조합 수집 (출현 순서 유지) ──
+  const combos = [];
+  const seen   = new Set();
+  b.rows.forEach(r => {
+    const key = `${r.coNo}||${r.item}||${r.price}||${r.quantity}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      combos.push({co:r.coNo||'', item:r.item||'',
+                   price:r.price||0, qty:r.quantity||0});
+    }
+  });
+
+  const N_FIXED = 10; // A~J: ETD ETA Invoice Carrier Vessel BookingNo BLNo POL POD Container
+  const lastCol = N_FIXED + combos.length - 1; // 0-indexed
+
+  // ── ROW 0: Buyer 라벨 ──
+  setC(enc(0,0), 'Buyer', {font:fnt(true,NAVY,9), alignment:aln('left')});
+  setC(enc(0,1), b.buyer, {font:fnt(true,NAVY,11), alignment:aln('left')});
+
+  // ── ROW 1~4: 좌측 타이틀(ASPEX대형 A1:I4) + 우측 계약블록(J1:J4 라벨, K1~데이터) ──
+  // 좌측: A1:I4 병합 → 바이어명 대형
+  for (let r=1;r<=4;r++) {
+    for (let c=0;c<9;c++) {
+      ws[enc(r,c)] = {v:'', t:'s', s:{fill:fill(LBLUE)}};
+    }
+  }
+  setC(enc(1,0), b.buyer, {
+    font: fnt(true,NAVY,22),
+    fill: fill(LBLUE),
+    alignment: aln('center','center'),
+  });
+
+  // 우측 계약블록 라벨 (J열=col9)
+  const blockLabels = ['CO_NO','PO_NO','GRADE','U/P'];
+  blockLabels.forEach((lbl, bi) => {
+    const row = 1 + bi;
+    setC(enc(row,9), lbl, {
+      font: fnt(true,WHITE,8),
+      fill: fill(HBLUE),
+      alignment: aln('center'),
+      border: bdr()
+    });
+    combos.forEach((combo, ci) => {
+      let v;
+      if (bi===0)      v = combo.co;
+      else if (bi===1) v = combo.co;
+      else if (bi===2) v = combo.item;
+      else             v = combo.price;
+      const col = N_FIXED + ci;
+      if (bi===3) {
+        setN(enc(row,col), v, {
+          font: fnt(false,NAVY,8), fill:fill(LBLUE),
+          alignment:aln('center'), border:bdr(), numFmt:'#,##0'
+        });
+      } else {
+        setC(enc(row,col), String(v||''), {
+          font: fnt(bi===0,NAVY,8), fill:fill(LBLUE),
+          alignment:aln('center'), border:bdr()
+        });
+      }
+    });
+  });
+
+  // ── ROW 5: 컬럼 헤더 ──
+  const HDR_ROW = 5;
+  const mainHdrs = ['ETD','ETA','Invoice No.','Carrier','Vessel',
+                    'Booking No.','BL No.','POL','POD','Container'];
+  mainHdrs.forEach((h,i) => {
+    setC(enc(HDR_ROW,i), h, {
+      font:fnt(true,WHITE,9), fill:fill(NAVY),
+      alignment:aln('center','center',true), border:bdr()
+    });
+  });
+  combos.forEach((combo, ci) => {
+    setC(enc(HDR_ROW, N_FIXED+ci), `${combo.qty} MT`, {
+      font:fnt(true,WHITE,8), fill:fill(NAVY),
+      alignment:aln('center'), border:bdr()
+    });
+  });
+
+  // ── 데이터 행 ──
+  const DATA_START = 6;
+  b.rows.forEach((r, ri) => {
+    const row = DATA_START + ri;
+    const bg  = ri%2===0 ? WHITE : GRAY;
+    const vals = [r.etd, r.eta, r.invoiceNo, r.carrier, r.vessel,
+                  r.bookingNo, r.blNo||'', r.pol, r.pod, r.container];
+    vals.forEach((v,ci) => {
+      setC(enc(row,ci), String(v||''), {
+        font: fnt(ci===0, '000000', 8),   // ETD 볼드
+        fill: fill(bg),
+        alignment: aln('center'),
+        border: bdr()
+      });
+    });
+    // Net_W를 해당 조합 열에
+    combos.forEach((combo, ci) => {
+      const col = N_FIXED + ci;
+      const match = combo.co===String(r.coNo||'') &&
+                    combo.item===String(r.item||'') &&
+                    Number(combo.price)===Number(r.price) &&
+                    Number(combo.qty)===Number(r.quantity);
+      if (match && r.netW) {
+        setN(enc(row,col), Math.round(Number(r.netW)*100)/100, {
+          font:fnt(false,'000000',8), fill:fill(bg),
+          alignment:aln('right'), border:bdr(), numFmt:'#,##0.00'
+        });
+      } else {
+        ws[enc(row,col)] = {v:'', t:'s', s:{fill:fill(bg), border:bdr()}};
+      }
+    });
+  });
+
+  // ── TOTAL 행 ──
+  const TOTAL_ROW = DATA_START + b.rows.length;
+  for (let c=0;c<N_FIXED;c++) {
+    ws[enc(TOTAL_ROW,c)] = {v: c===0?'Total':'', t:'s',
+      s:{font:fnt(true,NAVY,9), fill:fill(TOTAL),
+         alignment:aln(c===0?'center':'left'), border:bdrMed()}};
+  }
+  combos.forEach((combo, ci) => {
+    const total = b.rows.reduce((sum,r) => {
+      const match = combo.co===String(r.coNo||'') &&
+                    combo.item===String(r.item||'') &&
+                    Number(combo.price)===Number(r.price) &&
+                    Number(combo.qty)===Number(r.quantity);
+      return sum + (match ? Number(r.netW)||0 : 0);
+    }, 0);
+    setN(enc(TOTAL_ROW, N_FIXED+ci), Math.round(total*100)/100, {
+      font:fnt(true,NAVY,9), fill:fill(TOTAL),
+      alignment:aln('right'), border:bdrMed(), numFmt:'#,##0.00'
+    });
+  });
+
+  // ── 병합 ──
+  const merges = [
+    {s:{r:0,c:1}, e:{r:0,c:5}},                         // Buyer명
+    {s:{r:1,c:0}, e:{r:4,c:8}},                         // 타이틀 A2:I5
+    {s:{r:TOTAL_ROW,c:0}, e:{r:TOTAL_ROW,c:N_FIXED-1}}, // Total
+  ];
+  ws['!merges'] = merges;
+
+  // ── 열 너비 ──
+  const fixedW = [11,11,14,10,24,15,18,9,10,13];
+  ws['!cols'] = [
+    ...fixedW.map(w=>({wch:w})),
+    ...combos.map(()=>({wch:10}))
+  ];
+
+  // ── 행 높이 ──
+  const rowHts = Array.from({length:TOTAL_ROW+1}, (_,i) => {
+    if (i>=1&&i<=4) return {hpt:18};
+    if (i===HDR_ROW) return {hpt:20};
+    if (i===TOTAL_ROW) return {hpt:18};
+    return {hpt:15};
+  });
+  ws['!rows'] = rowHts;
+
+  // ── 印刷設定 ──
+  ws['!ref'] = XLSX.utils.encode_range(
+    {s:{r:0,c:0}, e:{r:TOTAL_ROW, c:N_FIXED+combos.length-1}});
+  ws['!pageSetup'] = {orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0};
+
+  XLSX.utils.book_append_sheet(wb2, ws, 'Shipping Schedule');
+  return XLSX.write(wb2, {bookType:'xlsx', type:'array', cellStyles:true});
+}
+
+// ═══════════════════════════════════════════
+// メール送付 (mailto)
+// ═══════════════════════════════════════════
+function buildMailto(b) {
+  const ymd = todayYMD();
+  const subject = `[SendOnly-Shipping Schedule notice] ${b.buyer}_${ymd}`;
+  const body = `Dear Sir/Madam,\r\n\r\nPlease kindly find the latest shipping schedule for "${b.buyer}"\r\n\r\nThanks,\r\nBest regards,`;
+
+  const cc = [b.emailCC, 'rcp@leenearcorp.com']
+    .flatMap(s => (s||'').split(';'))
+    .filter(Boolean)
+    .filter((v,i,a) => a.indexOf(v) === i)
+    .join(';');
+
+  return `mailto:${encodeURIComponent(b.emailTo)}`
+    + `?subject=${encodeURIComponent(subject)}`
+    + `&body=${encodeURIComponent(body)}`
+    + (cc ? `&cc=${encodeURIComponent(cc)}` : '');
+}
+
+function downloadExcel(b) {
+  const data = generateExcel(b);
+  const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ymd = todayYMD();
+  a.href = url;
+  a.download = `Shipping Schedule_${b.buyer}_${ymd}.xlsx`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+async function sendOne(idx) {
+  const b = filteredData[idx];
+  if (!b || b.sendType === 'nomail') return;
+  // Excel ダウンロード
+  downloadExcel(b);
+  await sleep(400);
+  // Outlook mailto 起動
+  window.location.href = buildMailto(b);
+  addLog(`📤 ${b.buyer} → Outlook を開きました`, 'ok');
+}
+
+async function sendSelected() {
+  const targets = buyerData.filter(b => b.selected && b.sendType !== 'nomail');
+  if (!targets.length) { alert('送付可能なバイヤーが選択されていません。'); return; }
+
+  document.getElementById('progressWrap').style.display = 'block';
+  setProgress(0, '');
+  log('');
+
+  for (let i = 0; i < targets.length; i++) {
+    const b = targets[i];
+    setProgress(Math.round((i / targets.length) * 100), `${b.buyer} を処理中...`);
+    addLog(`📄 ${b.buyer}: Excel生成 → ダウンロード`, '');
+    downloadExcel(b);
+    await sleep(600);
+    addLog(`📤 ${b.buyer}: Outlook 起動`, 'ok');
+    window.location.href = buildMailto(b);
+    await sleep(1500);
+  }
+  setProgress(100, '完了');
+  addLog(`✅ ${targets.length} 件の処理が完了しました`, 'ok');
+}
+
+// ═══════════════════════════════════════════
+// プレビュー Modal
+// ═══════════════════════════════════════════
+function previewOne(idx) {
+  const b = filteredData[idx];
+  currentModalBuyer = b;
+  const ymd = todayYMD();
+  const subject = `[SendOnly-Shipping Schedule notice] ${b.buyer}_${ymd}`;
+  const cc = [b.emailCC, 'rcp@leenearcorp.com']
+    .flatMap(s => (s||'').split(';')).filter(Boolean)
+    .filter((v,i,a)=>a.indexOf(v)===i).join('、');
+
+  document.getElementById('modalTitle').textContent = `メール確認 — ${b.buyer}`;
+
+  const rows_preview = b.rows.slice(0,5).map(r =>
+    `<tr><td>${r.etd}</td><td>${r.eta}</td><td>${escHtml(r.invoiceNo)}</td><td>${escHtml(r.carrier)}</td><td>${escHtml(r.vessel)}</td><td>${escHtml(r.pol)}</td><td>${escHtml(r.pod)}</td><td>${escHtml(r.container)}</td></tr>`
+  ).join('');
+  const more = b.rows.length > 5 ? `<tr><td colspan="8" style="text-align:center;color:var(--muted);font-size:.75rem">... 他 ${b.rows.length-5} 行</td></tr>` : '';
+
+  // Contract / PO No. 組み立て (モーダル用)
+  const modalContracts = [];
+  const modalPoNos     = [];
+  const modalSeen = new Set();
+  b.rows.forEach(r => {
+    const co = (r.coNo||'').toString().trim();
+    const po = (r.poNo||'').toString().trim();
+    if (co && !modalSeen.has(co)) { modalSeen.add(co); modalContracts.push(co); }
+    if (po && po !== co && !modalPoNos.includes(po)) modalPoNos.push(po);
+  });
+  const modalContractLine = modalContracts.length
+    ? `  Contract / PO No. : ${modalContracts.join(' / ')}` : '';
+  const modalPoLine = modalPoNos.length
+    ? `  PO No.            : ${modalPoNos.join(' / ')}` : '';
+
+  const previewBody = [
+    `Dear Sir/Madam,`,
+    ``,
+    `Please kindly find the attached shipping schedule.`,
+    ``,
+    ...[modalContractLine, modalPoLine, `  Buyer             : ${b.buyer}`].filter(Boolean),
+    ``,
+    `Please feel free to contact us if you have any questions.`,
+    ``,
+    `Thanks,`,
+    `Best regards,`,
+    ``,
+    `LEENEAR CORPORATION`,
+    `TEL: +81-3-3528-9850  FAX: +81-3-3528-9851`,
+    `E-mail: rcp@leenearcorp.com`,
+    `Web: www.leenearcorp.com`,
+    `─────────────────────────────────────────`,
+    `✦ Powered by LEENAI Automation System`,
+  ].join('\n');
+
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-field"><label>TO</label><div class="val">${escHtml(b.emailTo||'（送付先なし）')}</div></div>
+    <div class="modal-field"><label>CC</label><div class="val">${escHtml(cc||'—')}</div></div>
+    <div class="modal-field"><label>件名</label><div class="val">${escHtml(subject)}</div></div>
+    <div class="modal-field"><label>本文</label>
+      <div class="val" style="white-space:pre-line;font-size:.8rem">${escHtml(previewBody)}</div>
+    </div>
+    <div class="modal-field"><label>添付ファイル</label>
+      <div class="val">📎 Shipping Schedule_${escHtml(b.buyer)}_${ymd}.xlsx　（${b.rows.length}行）</div>
+    </div>
+    <div class="modal-field"><label>スケジュール (ETD昇順・先頭5件)</label>
+      <div style="overflow-x:auto">
+      <table style="width:100%;font-size:.72rem;border-collapse:collapse">
+        <thead style="background:var(--navy);color:#cde">
+          <tr><th style="padding:5px 8px">ETD</th><th>ETA</th><th>Invoice</th><th>Carrier</th><th>Vessel</th><th>POL</th><th>POD</th><th>Container</th></tr>
+        </thead>
+        <tbody>${rows_preview}${more}</tbody>
+      </table>
+      </div>
+    </div>
+  `;
+
+  const sendBtn   = document.getElementById('modalSendBtn');
+  const mailtoBtn = document.getElementById('modalMailtoBtn');
+  if (b.sendType === 'nomail') {
+    sendBtn.disabled = true;
+    sendBtn.textContent = '送付先なし';
+    mailtoBtn.style.display = 'none';
+  } else {
+    sendBtn.disabled = false;
+    sendBtn.textContent = '📝 下書き保存';
+    sendBtn.onclick = () => { closeModalDirect(); sendOneGraph(idx); };
+    mailtoBtn.onclick = () => { closeModalDirect(); sendOne(idx); };
+  }
+
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function previewSelected() {
+  const targets = buyerData.filter(b => b.selected);
+  if (!targets.length) { alert('バイヤーを選択してください。'); return; }
+  // 最初の1件をプレビュー
+  const idx = filteredData.indexOf(targets[0]);
+  if (idx >= 0) previewOne(idx);
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModalDirect();
+}
+function closeModalDirect() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════
+// ユーティリティ
+// ═══════════════════════════════════════════
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  if (msg) { el.textContent = msg; el.style.display = 'block'; }
+  else { el.style.display = 'none'; }
+}
+
+let logLines = [];
+function log(msg) { logLines = []; document.getElementById('progressLog').innerHTML = ''; }
+function addLog(msg, cls='') {
+  logLines.push({ msg, cls });
+  const el = document.getElementById('progressLog');
+  el.innerHTML += `<div class="${cls?'log-'+cls:''}">${escHtml(msg)}</div>`;
+  el.scrollTop = el.scrollHeight;
+  document.getElementById('progressWrap').style.display = 'block';
+}
+
+function setProgress(pct, msg) {
+  document.getElementById('progressBar').style.width = pct + '%';
+  if (msg) addLog(msg);
+}
+</script>
+</body>
+</html>
