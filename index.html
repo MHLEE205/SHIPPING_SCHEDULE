@@ -7,325 +7,77 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
-
-  /* ── ライトテーマ (デフォルト) ── */
-  :root {
-    --navy:    #0f2044;
-    --blue:    #1a5cb8;
-    --sky:     #3a8ee6;
-    --accent:  #f0a500;
-    --green:   #19a86a;
-    --red:     #d93025;
-    --bg:      #f4f7fc;
-    --card:    #ffffff;
-    --border:  #dce5f0;
-    --text:    #1a2640;
-    --text2:   #4a6080;
-    --text3:   #9aafcc;
-    --muted:   #7a8fa8;
-    --row-alt: #f8fafd;
-    --surface: #ffffff;
-    --surface2:#f0f4ff;
-  }
-
-  /* ── ダークテーマ オーバーライド ── */
-  [data-theme="dark"] {
-    --bg:      #0f1117;
-    --card:    #1a1d27;
-    --border:  #2e3350;
-    --text:    #e2e8f0;
-    --text2:   #8892a4;
-    --text3:   #4a5568;
-    --muted:   #8892a4;
-    --row-alt: #22263a;
-    --surface: #1a1d27;
-    --surface2:#22263a;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    font-family: 'DM Sans', sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-  }
-
-  /* ── LOADING OVERLAY ── */
-  .loading-overlay {
-    display: none;
-    position: fixed; inset: 0;
-    background: rgba(10,12,20,.72);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-  }
-  .loading-overlay.show { display: flex; }
-  .loading-box {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 28px 40px;
-    text-align: center;
-    min-width: 200px;
-  }
-  .loading-box .spinner {
-    width: 28px; height: 28px;
-    border: 3px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin .6s linear infinite;
-    margin: 0 auto;
-  }
-  .loading-msg {
-    margin-top: 12px;
-    font-size: .88rem;
-    font-weight: 600;
-    color: var(--muted);
-  }
-
-  /* ── HEADER ── */
-  header {
-    background: var(--navy);
-    padding: 14px 32px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky; top: 0; z-index: 100;
-    box-shadow: 0 2px 12px rgba(0,0,0,.25);
-  }
-  header .logo {
-    display: flex; align-items: center; gap: 12px;
-  }
-  header .logo-icon {
-    width: 34px; height: 34px;
-    background: var(--accent);
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px;
-  }
-  header h1 {
-    font-size: 1rem; font-weight: 600;
-    color: #fff; letter-spacing: .02em;
-  }
-  header h1 span { color: var(--accent); }
-  .version {
-    font-family: 'DM Mono', monospace;
-    font-size: .72rem; color: #7a9cbf;
-    background: rgba(255,255,255,.07);
-    padding: 4px 10px; border-radius: 20px;
-  }
-
-  /* ── MAIN ── */
-  main { max-width: 1100px; margin: 0 auto; padding: 28px 24px 60px; }
-
-  /* ── STEP CARD ── */
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 22px 26px;
-    margin-bottom: 18px;
-    box-shadow: 0 1px 6px rgba(15,32,68,.06);
-  }
-  .card-title {
-    font-size: .8rem; font-weight: 600;
-    color: var(--muted); letter-spacing: .08em;
-    text-transform: uppercase; margin-bottom: 14px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .card-title .step-num {
-    width: 22px; height: 22px;
-    background: var(--blue); color: #fff;
-    border-radius: 50%; font-size: .72rem;
-    display: flex; align-items: center; justify-content: center;
-    font-weight: 700;
-  }
-
-  /* ── FOLDER AREA ── */
-  .folder-row {
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  }
-  .btn {
-    display: inline-flex; align-items: center; gap: 7px;
-    padding: 9px 18px; border-radius: 8px;
-    font-family: 'DM Sans', sans-serif;
-    font-size: .85rem; font-weight: 500;
-    border: none; cursor: pointer;
-    transition: all .15s;
-  }
-  .btn-primary { background: var(--blue); color: #fff; }
-  .btn-primary:hover { background: var(--sky); }
-  .btn-accent  { background: var(--accent); color: var(--navy); }
-  .btn-accent:hover { background: #fbb72c; }
-  .btn-ghost {
-    background: transparent; color: var(--blue);
-    border: 1.5px solid var(--border);
-  }
-  .btn-ghost:hover { border-color: var(--sky); background: #eef4ff; }
-  .btn-danger { background: var(--red); color: #fff; }
-  .btn-danger:hover { background: #c0271f; }
-  .btn-green  { background: var(--green); color: #fff; }
-  .btn-green:hover { background: #159058; }
-  .btn:disabled { opacity: .45; cursor: not-allowed; }
-
-  #fileStatus {
-    font-size: .82rem; color: var(--muted);
-    font-family: 'DM Mono', monospace;
-    background: var(--row-alt);
-    padding: 7px 14px; border-radius: 6px;
-    border: 1px solid var(--border);
-    flex: 1; min-width: 0;
-  }
-  #fileStatus.ok { color: var(--green); border-color: #b3e8d0; background: #f0fbf6; }
-  #errorMsg {
-    color: var(--red); font-size: .8rem; margin-top: 8px;
-    display: none;
-    background: #fff4f3; border: 1px solid #f9c0bb;
-    border-radius: 6px; padding: 8px 12px;
-  }
-
-  /* ── SUMMARY BAR ── */
-  #summaryBar {
-    display: none;
-    gap: 16px; flex-wrap: wrap;
-    margin-bottom: 18px;
-  }
-  .stat-pill {
-    background: var(--card); border: 1px solid var(--border);
-    border-radius: 8px; padding: 10px 18px;
-    font-size: .82rem; color: var(--muted);
-    display: flex; align-items: center; gap: 6px;
-  }
-  .stat-pill strong { color: var(--text); font-size: 1.1rem; font-weight: 600; }
-
-  /* ── CONTROLS ── */
-  #controls {
-    display: none;
-    align-items: center; gap: 10px;
-    flex-wrap: wrap; margin-bottom: 14px;
-  }
-  #searchBox {
-    flex: 1; min-width: 180px;
-    padding: 8px 14px; border-radius: 8px;
-    border: 1.5px solid var(--border);
-    font-family: 'DM Sans', sans-serif;
-    font-size: .85rem; outline: none;
-    transition: border .15s;
-  }
-  #searchBox:focus { border-color: var(--sky); }
-
-  /* ── TABLE ── */
-  #tableWrap { display: none; overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
-  table { width: 100%; border-collapse: collapse; font-size: .82rem; }
-  thead th {
-    background: var(--navy); color: #cde; padding: 10px 12px;
-    text-align: left; font-weight: 500; font-size: .75rem;
-    letter-spacing: .05em; white-space: nowrap;
-    position: sticky; top: 0;
-  }
-  thead th:first-child { border-radius: 10px 0 0 0; }
-  thead th:last-child  { border-radius: 0 10px 0 0; }
-  thead th input[type=checkbox] { width: 15px; height: 15px; cursor: pointer; }
-  tbody tr { transition: background .1s; }
-  tbody tr:nth-child(even) { background: var(--row-alt); }
-  tbody tr:hover { background: #eef4ff; }
-  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-  tbody td:first-child { text-align: center; }
-
-  .badge {
-    display: inline-block; padding: 2px 8px; border-radius: 20px;
-    font-size: .71rem; font-weight: 600; letter-spacing: .03em;
-  }
-  .badge-agent    { background: #dbeafe; color: #1d4ed8; }
-  .badge-importer { background: #dcfce7; color: #15803d; }
-  .badge-direct   { background: #fef3c7; color: #92400e; }
-  .badge-nomail   { background: #fee2e2; color: #991b1b; }
-
-  .email-cell {
-    font-family: 'DM Mono', monospace;
-    font-size: .72rem; color: var(--muted);
-    max-width: 240px; overflow: hidden;
-    text-overflow: ellipsis; white-space: nowrap;
-  }
-
-  /* ── SEND PANEL ── */
-  #sendPanel {
-    display: none;
-    position: sticky; bottom: 0;
-    background: var(--navy);
-    border-top: 2px solid var(--accent);
-    padding: 14px 32px;
-    align-items: center; gap: 14px;
-    z-index: 99;
-    box-shadow: 0 -4px 20px rgba(0,0,0,.2);
-  }
-  #sendPanel .sel-info {
-    color: #aac; font-size: .85rem; flex: 1;
-  }
-  #sendPanel .sel-info strong { color: var(--accent); font-size: 1.1rem; }
-
-  /* ── PROGRESS ── */
-  #progressWrap { display: none; margin-top: 14px; }
-  .progress-bar-outer {
-    width: 100%; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;
-  }
-  .progress-bar-inner {
-    height: 100%; background: var(--green); border-radius: 4px;
-    transition: width .3s;
-  }
-  #progressLog {
-    margin-top: 10px; max-height: 160px; overflow-y: auto;
-    font-family: 'DM Mono', monospace; font-size: .74rem;
-    color: var(--muted); line-height: 1.8;
-  }
-  .log-ok   { color: var(--green); }
-  .log-warn { color: var(--accent); }
-  .log-err  { color: var(--red); }
-
-  /* ── MODAL (메일 미리보기) ── */
-  .modal-overlay {
-    display: none; position: fixed; inset: 0;
-    background: rgba(0,0,0,.45); z-index: 200;
-    align-items: center; justify-content: center;
-  }
-  .modal-overlay.open { display: flex; }
-  .modal {
-    background: var(--card); border-radius: 14px;
-    width: 680px; max-width: 96vw; max-height: 90vh;
-    overflow: hidden; display: flex; flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0,0,0,.35);
-  }
-  .modal-header {
-    background: var(--navy); color: #fff;
-    padding: 16px 22px;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .modal-header h3 { font-size: .95rem; font-weight: 600; }
-  .modal-close {
-    background: none; border: none; color: #aac;
-    font-size: 1.3rem; cursor: pointer; padding: 0 4px;
-    line-height: 1;
-  }
-  .modal-close:hover { color: #fff; }
-  .modal-body { padding: 20px 22px; overflow-y: auto; flex: 1; }
-  .modal-field { margin-bottom: 12px; }
-  .modal-field label {
-    display: block; font-size: .72rem; font-weight: 600;
-    color: var(--muted); margin-bottom: 4px; text-transform: uppercase;
-  }
-  .modal-field .val {
-    font-size: .83rem; color: var(--text);
-    background: var(--row-alt); border: 1px solid var(--border);
-    border-radius: 6px; padding: 7px 12px;
-    font-family: 'DM Mono', monospace;
-    word-break: break-all;
-  }
-  .modal-footer {
-    padding: 14px 22px; border-top: 1px solid var(--border);
-    display: flex; gap: 10px; justify-content: flex-end;
-  }
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--surface3:#2a2f46;--border:#2e3350;--accent:#4f8ef7;--ok:#22c55e;--warn:#f59e0b;--danger:#ef4444;--text:#e2e8f0;--text2:#8892a4;--text3:#4a5568;--radius:10px;}
+[data-theme="light"]{--bg:#f4f6fb;--surface:#ffffff;--surface2:#f0f4ff;--surface3:#e8edf7;--border:#d1d5db;--text:#111827;--text2:#6b7280;--text3:#9ca3af;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;}
+.loading-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;}
+.loading-overlay.show{display:flex;}
+.loading-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 40px;text-align:center;min-width:200px;}
+.loading-box .spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto;}
+.loading-msg{margin-top:10px;font-size:12px;font-weight:600;color:var(--text2);}
+@keyframes spin{to{transform:rotate(360deg);}}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:200;height:50px;}
+.logo{font-size:17px;font-weight:800;letter-spacing:1px;}.logo span{color:var(--accent);}
+.header-subtitle{font-size:12px;color:var(--text2);font-weight:500;}
+.header-ver{font-size:11px;color:#fff;background:var(--accent);padding:2px 9px;border-radius:12px;font-weight:700;}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;display:flex;flex-direction:column;gap:14px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;}
+.card-title{font-weight:700;font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.step-num{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;}
+.folder-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+#fileStatus{font-size:12px;color:var(--text2);font-family:monospace;background:var(--surface2);padding:8px 14px;border-radius:8px;border:1px solid var(--border);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#fileStatus.ok{color:var(--ok);border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.05);}
+#errorMsg{color:var(--danger);font-size:12px;margin-top:8px;display:none;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:6px;padding:8px 12px;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .15s;white-space:nowrap;}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+.btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover:not(:disabled){filter:brightness(1.1);}
+.btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border);}.btn-ghost:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+.btn-ok{background:var(--ok);color:#fff;}.btn-ok:hover:not(:disabled){filter:brightness(1.1);}
+.btn-danger{background:var(--danger);color:#fff;}.btn-danger:hover:not(:disabled){filter:brightness(1.1);}
+#summaryBar{display:none;gap:10px;flex-wrap:wrap;}
+.stat-pill{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;}
+.stat-pill strong{color:var(--text);font-size:15px;font-weight:700;}
+#controls{display:none;align-items:center;gap:8px;flex-wrap:wrap;}
+#searchBox{flex:1;min-width:180px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;font-size:13px;outline:none;transition:border .15s;}
+#searchBox:focus{border-color:var(--accent);}
+#searchBox::placeholder{color:var(--text3);}
+#tableWrap{display:none;overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead th{background:var(--surface3);color:var(--text2);padding:9px 12px;text-align:left;font-weight:600;font-size:11px;letter-spacing:.05em;white-space:nowrap;position:sticky;top:0;}
+thead th input[type=checkbox]{width:14px;height:14px;cursor:pointer;}
+tbody tr{transition:background .1s;}
+tbody tr:nth-child(even){background:var(--surface2);}
+tbody tr:hover{background:rgba(79,142,247,.06);}
+tbody td{padding:8px 12px;border-bottom:1px solid rgba(46,51,80,.4);vertical-align:middle;}
+tbody td:first-child{text-align:center;}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;}
+.badge-agent{background:rgba(79,142,247,.15);color:var(--accent);}
+.badge-importer{background:rgba(34,197,94,.15);color:var(--ok);}
+.badge-direct{background:rgba(245,158,11,.15);color:var(--warn);}
+.badge-nomail{background:rgba(239,68,68,.15);color:var(--danger);}
+.email-cell{font-family:monospace;font-size:11px;color:var(--text2);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#sendPanel{display:none;position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--border);padding:12px 24px;align-items:center;gap:12px;z-index:99;box-shadow:0 -4px 20px rgba(0,0,0,.3);}
+#sendPanel .sel-info{color:var(--text2);font-size:13px;flex:1;}
+#sendPanel .sel-info strong{color:var(--accent);font-size:15px;}
+#progressWrap{display:none;margin-top:12px;}
+.progress-bar-outer{width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden;}
+.progress-bar-inner{height:100%;background:var(--ok);border-radius:3px;transition:width .3s;}
+#progressLog{margin-top:8px;max-height:140px;overflow-y:auto;font-family:monospace;font-size:12px;color:var(--text2);line-height:1.8;}
+.log-ok{color:var(--ok);}.log-warn{color:var(--warn);}.log-err{color:var(--danger);}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:680px;max-width:96vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.modal-header{background:var(--surface2);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
+.modal-header h3{font-size:14px;font-weight:700;}
+.modal-close{background:none;border:none;color:var(--text2);font-size:16px;cursor:pointer;padding:0 4px;line-height:1;}
+.modal-close:hover{color:var(--text);}
+.modal-body{padding:18px 20px;overflow-y:auto;flex:1;}
+.modal-field{margin-bottom:12px;}
+.modal-field label{display:block;font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;}
+.modal-field .val{font-size:12px;color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-family:monospace;word-break:break-all;}
+.modal-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
 </style>
 </head>
 <body>
@@ -338,24 +90,14 @@
   </div>
 </div>
 
-<header>
-  <div class="logo">
-    <div class="logo-icon">✈</div>
-    <h1>LEENAI <span>Shipping Schedule</span> 送付ツール</h1>
-  </div>
-  <div style="display:flex;align-items:center;gap:12px">
-    <div id="authStatus" style="font-size:.78rem;color:var(--muted);font-family:'DM Mono',monospace">⚪ 未ログイン</div>
-    <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()"
-      style="color:#aac;border-color:#334;font-size:.8rem;padding:6px 14px">
-      🔑 Outlookログイン
-    </button>
-    <button id="themeToggleBtn" onclick="toggleTheme()"
-      style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;
-             padding:4px 12px;cursor:pointer;font-size:.8rem;color:var(--text);
-             display:flex;align-items:center;gap:6px;transition:all .2s;">
-      🌙 ダーク
-    </button>
-    <div class="version">Shipping Schedule 送付ツール v2.10 (2026-04-26)</div>
+<header class="header">
+  <div class="logo">LEEN<span>AI</span></div>
+  <span class="header-subtitle">Shipping Schedule 送付ツール</span>
+  <span class="header-ver">v2.10</span>
+  <div class="header-right">
+    <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
+    <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
+    <button id="themeToggleBtn" onclick="toggleTheme()" class="btn btn-ghost" style="font-size:11px;padding:5px 12px;">🌙 ダーク</button>
   </div>
 </header>
 
@@ -414,9 +156,9 @@
 <!-- 送信パネル (sticky bottom) -->
 <div id="sendPanel" style="display:flex">
   <div class="sel-info">選択中: <strong id="selCount">0</strong> 件</div>
-  <button class="btn btn-ghost" style="color:#aac;border-color:#334" onclick="previewSelected()">👁 内容確認</button>
-  <button class="btn btn-green" onclick="sendSelectedGraph()" id="btnGraphSend">📝 選択分を下書き保存</button>
-  <button class="btn btn-ghost" style="color:#aac;border-color:#334;font-size:.78rem" onclick="sendSelected()">mailto方式</button>
+  <button class="btn btn-ghost" onclick="previewSelected()">👁 内容確認</button>
+  <button class="btn btn-ok" onclick="sendSelectedGraph()" id="btnGraphSend">📝 選択分を下書き保存</button>
+  <button class="btn btn-ghost" style="font-size:11px" onclick="sendSelected()">mailto方式</button>
 </div>
 
 <!-- メールプレビュー Modal -->
@@ -429,8 +171,8 @@
     <div class="modal-body" id="modalBody"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModalDirect()">閉じる</button>
-      <button class="btn btn-ghost" style="font-size:.8rem" id="modalMailtoBtn">📤 mailto方式</button>
-      <button class="btn btn-green" id="modalSendBtn">📝 下書き保存</button>
+      <button class="btn btn-ghost" style="font-size:11px" id="modalMailtoBtn">📤 mailto方式</button>
+      <button class="btn btn-ok" id="modalSendBtn">📝 下書き保存</button>
     </div>
   </div>
 </div>
@@ -594,11 +336,11 @@ function updateAuthUI(loggedIn) {
   const btn = document.getElementById('authBtn');
   if (loggedIn) {
     st.textContent  = `🟢 ${loggedInUser}`;
-    st.style.color  = '#19a86a';
+    st.style.color  = '#22c55e';
     btn.textContent = '🔓 ログアウト';
   } else {
     st.textContent  = '⚪ 未ログイン';
-    st.style.color  = '#7a9cbf';
+    st.style.color  = '';
     btn.textContent = '🔑 Outlookログイン';
   }
 }
@@ -1111,7 +853,7 @@ function renderTable() {
       nomail:   '<span class="badge badge-nomail">送付先なし</span>',
     }[b.sendType] || '';
 
-    const toDisp = b.emailTo || '<span style="color:var(--red)">—</span>';
+    const toDisp = b.emailTo || '<span style="color:var(--danger)">—</span>';
     const ccDisp = b.emailCC
       ? b.emailCC.split(';').filter(Boolean).join('<br>')
       : '—';
@@ -1119,7 +861,7 @@ function renderTable() {
     tr.innerHTML = `
       <td><input type="checkbox" ${b.selected?'checked':''} onchange="toggleRow(${idx},this)"></td>
       <td><strong>${escHtml(b.buyer)}</strong></td>
-      <td style="color:var(--muted);font-size:.78rem">${escHtml(b.agent||'—')}</td>
+      <td style="color:var(--text2);font-size:11px">${escHtml(b.agent||'—')}</td>
       <td>${typeBadge}</td>
       <td class="email-cell" title="${escHtml(b.emailTo)}">${escHtml(b.emailTo||'—')}</td>
       <td class="email-cell" style="font-size:.68rem" title="${escHtml(b.emailCC)}">${escHtml(b.emailCC ? b.emailCC.split(';').join('\n') : '—')}</td>
@@ -1129,7 +871,7 @@ function renderTable() {
         <button class="btn btn-ghost" style="font-size:.75rem;padding:5px 10px"
           onclick="previewOne(${idx})">👁 確認</button>
         ${b.sendType!=='nomail'
-          ? `<button class="btn btn-green" style="font-size:.75rem;padding:5px 10px;margin-left:4px"
+          ? `<button class="btn btn-ok" style="font-size:.75rem;padding:5px 10px;margin-left:4px"
               onclick="sendOneGraph(${idx})">📝 下書き</button>`
           : ''}
       </td>
@@ -1530,7 +1272,7 @@ function previewOne(idx) {
     <div class="modal-field"><label>スケジュール (ETD昇順・先頭5件)</label>
       <div style="overflow-x:auto">
       <table style="width:100%;font-size:.72rem;border-collapse:collapse">
-        <thead style="background:var(--navy);color:#cde">
+        <thead style="background:var(--surface3);color:var(--text2)">
           <tr><th style="padding:5px 8px">ETD</th><th>ETA</th><th>Invoice</th><th>Carrier</th><th>Vessel</th><th>POL</th><th>POD</th><th>Container</th></tr>
         </thead>
         <tbody>${rows_preview}${more}</tbody>
