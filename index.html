@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v2.9</title>
+<title>LEENAI Shipping Schedule 送付ツール v2.10</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -170,7 +170,7 @@
   .btn-green:hover { background: #159058; }
   .btn:disabled { opacity: .45; cursor: not-allowed; }
 
-  #folderStatus {
+  #fileStatus {
     font-size: .82rem; color: var(--muted);
     font-family: 'DM Mono', monospace;
     background: var(--row-alt);
@@ -178,7 +178,7 @@
     border: 1px solid var(--border);
     flex: 1; min-width: 0;
   }
-  #folderStatus.ok { color: var(--green); border-color: #b3e8d0; background: #f0fbf6; }
+  #fileStatus.ok { color: var(--green); border-color: #b3e8d0; background: #f0fbf6; }
   #errorMsg {
     color: var(--red); font-size: .8rem; margin-top: 8px;
     display: none;
@@ -355,7 +355,7 @@
              display:flex;align-items:center;gap:6px;transition:all .2s;">
       🌙 ダーク
     </button>
-    <div class="version">Shipping Schedule 送付ツール v2.9 (2026-04-26)</div>
+    <div class="version">Shipping Schedule 送付ツール v2.10 (2026-04-26)</div>
   </div>
 </header>
 
@@ -365,8 +365,8 @@
   <div class="card">
     <div class="card-title"><span class="step-num">1</span> Excelファイル読み込み</div>
     <div class="folder-row">
-      <button class="btn btn-primary" onclick="selectFolder()">📂 フォルダを選択</button>
-      <div id="folderStatus">SharePointの同期フォルダを選択してください</div>
+      <button class="btn btn-primary" onclick="selectFile()">📄 ファイルを選択</button>
+      <div id="fileStatus">Shipping ScheduleのExcelファイルを選択してください</div>
     </div>
     <div id="errorMsg"></div>
     <div id="progressWrap">
@@ -772,7 +772,7 @@ async function sendSelectedGraph() {
 // ═══════════════════════════════════════════
 // 状態
 // ═══════════════════════════════════════════
-let folderHandle = null;
+let fileHandle = null;
 let buyerData = [];   // [{buyer, agent, rows, emailTo, emailCC, sendType}]
 let filteredData = [];
 let currentModalBuyer = null;
@@ -807,98 +807,100 @@ async function dbSet(key, val) {
 
 // 起動時: 保存済みハンドル復元
 window.addEventListener('load', async () => {
+  // テーマ復元 (既存)
+  const saved = localStorage.getItem('leenai_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  updateThemeBtn(saved);
+
+  // ファイルハンドル復元
   try {
-    const h = await dbGet('folder');
+    const h = await dbGet('scheduleFile');
     if (!h) return;
     const perm = await h.queryPermission({ mode: 'read' });
     if (perm === 'granted') {
-      folderHandle = h;
-      setFolderStatus(h.name, true);
-      await loadFromFolder();
+      fileHandle = h;
+      setFileStatus(h.name, true);
+      await loadFromFile();
     } else {
-      setFolderStatus(h.name, false);
-      folderHandle = h;
+      fileHandle = h;
+      setFileStatus(h.name, false);
     }
   } catch(e) {}
 });
 
 // ═══════════════════════════════════════════
-// フォルダ選択
+// ファイル選択 (showOpenFilePicker)
 // ═══════════════════════════════════════════
-async function selectFolder() {
-  if (!window.showDirectoryPicker) {
-    showError('このブラウザはフォルダ選択に対応していません。Chrome/Edgeをご使用ください。');
+async function selectFile() {
+  if (!window.showOpenFilePicker) {
+    showError('このブラウザはファイル選択に対応していません。Chrome/Edgeをご使用ください。');
     return;
   }
   try {
-    const h = await window.showDirectoryPicker({ mode: 'read' });
-    folderHandle = h;
-    await dbSet('folder', h);
-    setFolderStatus(h.name, true);
-    await loadFromFolder();
+    const [h] = await window.showOpenFilePicker({
+      types: [{
+        description: 'Excel Files',
+        accept: {
+          'application/vnd.ms-excel.sheet.macroenabled.12': ['.xlsm'],
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+        }
+      }],
+      multiple: false
+    });
+    fileHandle = h;
+    await dbSet('scheduleFile', h);
+    setFileStatus(h.name, true);
+    await loadFromFile();
   } catch(e) {
-    if (e.name !== 'AbortError') showError('フォルダ選択エラー: ' + e.message);
+    if (e.name !== 'AbortError') showError('ファイル選択エラー: ' + e.message);
   }
 }
 
-function setFolderStatus(name, ok) {
-  const el = document.getElementById('folderStatus');
-  el.textContent = ok ? `📂 ${name}  ✅ 読み込み済み` : `📂 ${name}  （権限確認中）`;
+function setFileStatus(name, ok) {
+  const el = document.getElementById('fileStatus');
+  el.textContent = ok
+    ? `📄 ${name}  ✅ 読み込み済み`
+    : `📄 ${name}  （権限確認中）`;
   el.className = ok ? 'ok' : '';
 }
 
 // ═══════════════════════════════════════════
 // Excelファイル読み込み
 // ═══════════════════════════════════════════
-async function loadFromFolder() {
+async function loadFromFile() {
   showError('');
   setProgress(0, '');
   log('');
 
-  // Shipping_Schedule で始まる .xlsm を自動検出
-  let fileHandle = null;
-  let foundName = '';
-
-  async function scanForFile(handle) {
-    for await (const [name, entry] of handle.entries()) {
-      if (entry.kind === 'file'
-          && name.toLowerCase().startsWith('shipping schedule')
-          && (name.toLowerCase().endsWith('.xlsm') || name.toLowerCase().endsWith('.xlsx'))) {
-        fileHandle = entry;
-        foundName  = name;
-        return true;
-      }
-    }
-    return false;
-  }
-
-  try {
-    await scanForFile(folderHandle);
-  } catch(e) {
-    const perm = await folderHandle.requestPermission({ mode: 'read' });
-    if (perm !== 'granted') { showError('フォルダへのアクセス権限がありません。'); return; }
-    await scanForFile(folderHandle);
-  }
-
   if (!fileHandle) {
-    showError('⚠️ フォルダ内に「Shipping_Schedule〜.xlsm」が見つかりません。\n正しい SharePoint 同期フォルダを選択してください。');
+    showError('⚠️ ファイルが選択されていません。');
     return;
   }
 
-  addLog(`✅ ${foundName} を検出`, 'ok');
-  setProgress(20, 'Excelを読み込み中...');
-
   try {
+    // 権限確認 → 必要なら再要求
+    let perm = await fileHandle.queryPermission({ mode: 'read' });
+    if (perm !== 'granted') {
+      perm = await fileHandle.requestPermission({ mode: 'read' });
+      if (perm !== 'granted') {
+        showError('ファイルへのアクセス権限がありません。');
+        return;
+      }
+    }
+
+    addLog(`✅ ${fileHandle.name} を読み込み中...`, 'ok');
+    setProgress(20, 'Excelを読み込み中...');
+
     const file = await fileHandle.getFile();
-    const buf = await file.arrayBuffer();
-    const wb = XLSX.read(new Uint8Array(buf), { type: 'array', raw: true });
+    const buf  = await file.arrayBuffer();
+    const wb   = XLSX.read(new Uint8Array(buf), { type: 'array', raw: true });
 
     setProgress(50, 'データを解析中...');
     parseWorkbook(wb);
     setProgress(100, '完了');
     document.getElementById('progressWrap').style.display = 'none';
   } catch(e) {
-    showError('Excelの読み込みに失敗しました。\n手動でExcelファイルを開き、更新をして下さい。\nエラー: ' + e.message);
+    showError('Excelの読み込みに失敗しました。\n手動でExcelファイルを開き、更新してください。\nエラー: ' + e.message);
   }
 }
 
