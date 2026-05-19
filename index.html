@@ -82,6 +82,16 @@ tbody td:first-child{text-align:center;}
 </head>
 <body>
 
+<!-- ── Login Gate ── -->
+<div id="loginGate" style="display:flex;position:fixed;inset:0;background:#0f1117;z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
+  <div style="font-size:40px;font-weight:800;letter-spacing:3px;color:#e2e8f0;">LEEN<span style="color:#4f8ef7">AI</span></div>
+  <div style="font-size:13px;color:#8892a4;font-weight:500;">Shipping Schedule 送付ツール</div>
+  <div style="width:48px;height:1px;background:#2e3350;margin:12px 0;"></div>
+  <div style="font-size:12px;color:#4a5568;text-align:center;line-height:1.8;">このツールを使用するには<br>Outlookアカウントでのログインが必要です</div>
+  <button id="gateLoginBtn" onclick="gateLogin()" style="margin-top:8px;background:#4f8ef7;color:#fff;border:none;padding:11px 32px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Segoe UI',sans-serif;display:inline-flex;align-items:center;gap:8px;">🔑 Outlookでログイン</button>
+  <div id="gateStatus" style="font-size:11px;color:#8892a4;height:18px;"></div>
+</div>
+
 <!-- ── Loading Overlay ── -->
 <div class="loading-overlay" id="loadingOverlay">
   <div class="loading-box">
@@ -221,6 +231,18 @@ async function generatePKCE() {
   return { verifier, challenge };
 }
 
+async function gateLogin() {
+  const btn = document.getElementById('gateLoginBtn');
+  btn.disabled = true;
+  document.getElementById('gateStatus').textContent = 'ログイン中...';
+  try {
+    await startOAuthFlow();
+  } catch(e) {
+    btn.disabled = false;
+    document.getElementById('gateStatus').textContent = e.message !== 'CANCELLED' ? 'エラー: ' + e.message : '';
+  }
+}
+
 async function toggleAuth() {
   if (graphToken) {
     graphToken = null; loggedInUser = null;
@@ -338,6 +360,7 @@ function updateAuthUI(loggedIn) {
     st.textContent  = `🟢 ${loggedInUser}`;
     st.style.color  = '#22c55e';
     btn.textContent = '🔓 ログアウト';
+    document.getElementById('loginGate').style.display = 'none';
   } else {
     st.textContent  = '⚪ 未ログイン';
     st.style.color  = '';
