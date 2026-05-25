@@ -482,7 +482,7 @@ async function fetchBookingsByContracts(contractGuids, token) {
               + `&$select=cr49f_booking_id,cr49f_bl_number,cr49f_booking_no,cr49f_invoice_no,`
               + `cr49f_main_ship_name,cr49f_etd,cr49f_eta,crcf9_bl_eta,`
               + `_cr49f_carrier_id_value,_cr49f_region_japan_id_value,_cr49f_region_id_value,`
-              + `cr49f_buyer,_cr49f_sale_contract_id_value`
+              + `_cr49f_sale_contract_id_value`
               + `&$expand=${expand}`;
     const rows = await d365Get(url, token);
     all.push(...(Array.isArray(rows) ? rows : [rows]));
@@ -522,6 +522,21 @@ function buildScheduleRowsFromD365(bookings, containerInfos) {
   const bMap = {};
   bookings.forEach(b => { bMap[b.cr49f_bookingid] = b; });
 
+  // buyer フィールド名を自動検出 (cr49f_buyer が存在しない場合の fallback)
+  const firstBk = bookings[0] || {};
+  const buyerKey = ['cr49f_buyer','cr49f_buyername','cr49f_buyer_name','cr49f_name']
+    .find(k => firstBk[k] !== undefined) || 'cr49f_buyer';
+  if (buyerKey !== 'cr49f_buyer') {
+    addLog(`ℹ️ buyer フィールド: ${buyerKey} を使用`, '');
+  }
+  // 未知フィールドのデバッグ用 (初回のみ)
+  const knownKeys = new Set(['cr49f_bookingid','cr49f_bl_number','cr49f_booking_no',
+    'cr49f_invoice_no','cr49f_main_ship_name','cr49f_etd','cr49f_eta','crcf9_bl_eta',
+    '_cr49f_carrier_id_value','_cr49f_region_japan_id_value','_cr49f_region_id_value',
+    '_cr49f_sale_contract_id_value','cr49f_sale_contract_id']);
+  const unknownKeys = Object.keys(firstBk).filter(k => !knownKeys.has(k) && !k.includes('@'));
+  if (unknownKeys.length) addLog(`📋 booking追加フィールド: ${unknownKeys.join(', ')}`, '');
+
   // container_info 行ごとに1出力行
   const rows = [];
   containerInfos.forEach(ci => {
@@ -540,7 +555,7 @@ function buildScheduleRowsFromD365(bookings, containerInfos) {
       .filter(Boolean).join(' ').trim() || ' ';
 
     rows.push({
-      buyer:      (bk.cr49f_buyer || '').trim(),
+      buyer:      (bk[buyerKey] || '').trim(),
       agent:      agentName.toString().trim(),
       invoiceNo:  bk.cr49f_invoice_no  || '',
       blNo:       bk.cr49f_bl_number   || '',
