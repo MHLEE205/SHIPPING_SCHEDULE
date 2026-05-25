@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v2.11.1</title>
+<title>LEENAI Shipping Schedule 送付ツール v2.11.2</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -103,7 +103,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v2.11.1</span>
+  <span class="header-ver">v2.11.2</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -529,24 +529,14 @@ async function fetchContainerInfos(bookingGuids, token) {
 // D365 応答 → scheduleRows 変換 (v2.11追加)
 // ═══════════════════════════════════════════
 function buildScheduleRowsFromD365(bookings, containerInfos) {
-  // booking GUID → booking マップ
+  // booking GUID → booking マップ (正しいフィールド名: cr49f_booking_id)
   const bMap = {};
-  bookings.forEach(b => { bMap[b.cr49f_bookingid] = b; });
+  bookings.forEach(b => { bMap[b.cr49f_booking_id] = b; });
 
-  // buyer フィールド名を自動検出 (cr49f_buyer が存在しない場合の fallback)
+  // booking 全フィールドをログ出力 (buyer フィールド名確認用)
   const firstBk = bookings[0] || {};
-  const buyerKey = ['cr49f_buyer','cr49f_buyername','cr49f_buyer_name','cr49f_name']
-    .find(k => firstBk[k] !== undefined) || 'cr49f_buyer';
-  if (buyerKey !== 'cr49f_buyer') {
-    addLog(`ℹ️ buyer フィールド: ${buyerKey} を使用`, '');
-  }
-  // 未知フィールドのデバッグ用 (初回のみ)
-  const knownKeys = new Set(['cr49f_bookingid','cr49f_bl_number','cr49f_booking_no',
-    'cr49f_invoice_no','cr49f_main_ship_name','cr49f_etd','cr49f_eta','crcf9_bl_eta',
-    '_cr49f_carrier_id_value','_cr49f_region_japan_id_value','_cr49f_region_id_value',
-    '_cr49f_sale_contract_id_value','cr49f_sale_contract_id']);
-  const unknownKeys = Object.keys(firstBk).filter(k => !knownKeys.has(k) && !k.includes('@'));
-  if (unknownKeys.length) addLog(`📋 booking追加フィールド: ${unknownKeys.join(', ')}`, '');
+  const allBkFields = Object.keys(firstBk).filter(k => !k.includes('@'));
+  addLog(`📋 booking フィールド: ${allBkFields.join(', ')}`, '');
 
   // container_info 行ごとに1出力行
   const rows = [];
@@ -566,7 +556,7 @@ function buildScheduleRowsFromD365(bookings, containerInfos) {
       .filter(Boolean).join(' ').trim() || ' ';
 
     rows.push({
-      buyer:      (bk[buyerKey] || '').trim(),
+      buyer:      (bk.cr49f_buyer || '').trim(),
       agent:      agentName.toString().trim(),
       invoiceNo:  bk.cr49f_invoice_no  || '',
       blNo:       bk.cr49f_bl_number   || '',
