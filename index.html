@@ -497,14 +497,25 @@ async function fetchBookingsByContracts(contractGuids, token) {
 // ═══════════════════════════════════════════
 async function fetchContainerInfos(bookingGuids, token) {
   addLog('🚢 Step3: コンテナ情報を取得中...', '');
+
+  // 初回のみ $select なしで1件取得 → 実際のフィールド名を確認
+  const probe = await d365Get(
+    `crcf9_container_informations?$top=1&$expand=crcf9_item_id($select=cr49f_item_name)`, token);
+  const probeRow = Array.isArray(probe) ? probe[0] : probe;
+  if (probeRow) {
+    const fields = Object.keys(probeRow).filter(k => !k.includes('@'));
+    addLog(`📋 container_info フィールド: ${fields.join(', ')}`, '');
+  }
+
   const all = [];
   const CHUNK = 10;
   for (let i = 0; i < bookingGuids.length; i += CHUNK) {
     const chunk = bookingGuids.slice(i, i + CHUNK);
     const filter = chunk.map(g => `_crcf9_booking_id_value eq ${g}`).join(' or ');
+    // $select は確認済みフィールドのみ指定 (crcf9_price は存在しないため除外)
     const url = `crcf9_container_informations?$filter=${filter}`
               + `&$select=crcf9_container_informationid,_crcf9_booking_id_value,`
-              + `crcf9_n_w,crcf9_quantity,crcf9_container_no,crcf9_type,crcf9_price`
+              + `crcf9_n_w,crcf9_quantity,crcf9_container_no,crcf9_type`
               + `&$expand=crcf9_item_id($select=cr49f_item_name)`;
     const rows = await d365Get(url, token);
     all.push(...(Array.isArray(rows) ? rows : [rows]));
