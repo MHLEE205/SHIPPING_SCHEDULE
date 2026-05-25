@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v2.11.4</title>
+<title>LEENAI Shipping Schedule 送付ツール v2.11.5</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -103,7 +103,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v2.11.4</span>
+  <span class="header-ver">v2.11.5</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -470,22 +470,16 @@ async function fetchActiveContractGuids(token) {
 async function fetchBookingsByContracts(contractGuids, token) {
   addLog('📦 Step2: ブッキング情報を取得中...', '');
 
-  // booking の全フィールドを probe して buyer フィールド名を確認
-  const probeUrl = `cr49f_bookings?$filter=_cr49f_sale_contract_id_value eq ${contractGuids[0]}&$top=1`;
-  const probeRows = await d365Get(probeUrl, token);
-  const probeRow  = Array.isArray(probeRows) ? probeRows[0] : probeRows;
-  if (probeRow) {
-    const allFields = Object.keys(probeRow).filter(k => !k.includes('@'));
-    addLog(`📋 booking 全フィールド: ${allFields.join(', ')}`, '');
-  }
-
   const all = [];
   const CHUNK = 10;
   for (let i = 0; i < contractGuids.length; i += CHUNK) {
     const chunk = contractGuids.slice(i, i + CHUNK);
     const filter = chunk.map(g => `_cr49f_sale_contract_id_value eq ${g}`).join(' or ');
-    const expand = `cr49f_sale_contract_id($select=cr49f_sale_contract_no,cr49f_sale_contract_date,`
-                 + `cr49f_latest_shipment,cr49f_po_no,_cr49f_agent_id_value,_cr49f_buyer_id_value)`;
+    const expand = `cr49f_sale_contract_id(`
+                 + `$select=cr49f_sale_contract_no,cr49f_sale_contract_date,`
+                 + `cr49f_latest_shipment,cr49f_po_no,_cr49f_agent_id_value,_cr49f_buyer_id_value;`
+                 + `$expand=cr49f_buyer_id($select=cr49f_buyer_name,cr49f_buyer),`
+                 + `cr49f_agent_id($select=cr49f_agent_name,cr49f_agent))`;
     const url = `cr49f_bookings?$filter=${filter}`
               + `&$select=cr49f_bookingid,cr49f_bl_number,cr49f_booking_no,cr49f_invoice_no,`
               + `cr49f_main_ship_name,cr49f_etd,cr49f_eta,crcf9_bl_eta,`
@@ -506,24 +500,14 @@ async function fetchBookingsByContracts(contractGuids, token) {
 async function fetchContainerInfos(bookingGuids, token) {
   addLog('🚢 Step3: コンテナ情報を取得中...', '');
 
-  // 初回のみ $select なしで1件取得 → 実際のフィールド名を確認
-  const probe = await d365Get(
-    `crcf9_container_informations?$top=1&$expand=crcf9_item_id($select=cr49f_item_name)`, token);
-  const probeRow = Array.isArray(probe) ? probe[0] : probe;
-  if (probeRow) {
-    const fields = Object.keys(probeRow).filter(k => !k.includes('@'));
-    addLog(`📋 container_info フィールド: ${fields.join(', ')}`, '');
-  }
-
   const all = [];
   const CHUNK = 10;
   for (let i = 0; i < bookingGuids.length; i += CHUNK) {
     const chunk = bookingGuids.slice(i, i + CHUNK);
     const filter = chunk.map(g => `_crcf9_booking_id_value eq ${g}`).join(' or ');
-    // $select は確認済みフィールドのみ指定 (crcf9_price は存在しないため除外)
     const url = `crcf9_container_informations?$filter=${filter}`
               + `&$select=crcf9_container_informationid,_crcf9_booking_id_value,`
-              + `crcf9_n_w,crcf9_quantity,crcf9_container_no,crcf9_type`
+              + `crcf9_n_w,crcf9_quantity,crcf9_container_no,crcf9_type,crcf9_purchase_price`
               + `&$expand=crcf9_item_id($select=cr49f_item_name)`;
     const rows = await d365Get(url, token);
     all.push(...(Array.isArray(rows) ? rows : [rows]));
@@ -548,8 +532,15 @@ function buildScheduleRowsFromD365(bookings, containerInfos) {
     if (!bk) return;
 
     const sc = bk.cr49f_sale_contract_id || {};
-    const buyerName = sc['_cr49f_buyer_id_value@OData.Community.Display.V1.FormattedValue'] || '';
-    const agentName = sc['_cr49f_agent_id_value@OData.Community.Display.V1.FormattedValue']
+    const buyerData = sc.cr49f_buyer_id || {};
+    const buyerName = buyerData.cr49f_buyer_name
+                   || sc['_cr49f_buyer_id_value@OData.Community.Display.V1.FormattedValue'] || '';
+    const agentData = sc.cr49f_agent_id || {};
+    if (rows.length === 0 && Object.keys(agentData).filter(k => !k.includes('@')).length > 0) {
+      addLog(`📋 agent展開フィールド: ${Object.keys(agentData).filter(k => !k.includes('@')).join(', ')}`, '');
+    }
+    const agentName = agentData.cr49f_agent_name
+                   || sc['_cr49f_agent_id_value@OData.Community.Display.V1.FormattedValue']
                    || sc['_cr49f_agent_id_value'] || '';
 
     const etd = bk.cr49f_etd ? bk.cr49f_etd.slice(0,10).replace(/-/g,'/') : '';
@@ -574,7 +565,7 @@ function buildScheduleRowsFromD365(bookings, containerInfos) {
       coNo:       sc.cr49f_sale_contract_no  || '',
       poNo:       sc.cr49f_po_no             || '',
       item:       ci.crcf9_item_id ? (ci.crcf9_item_id.cr49f_item_name || '') : '',
-      price:      ci.crcf9_price    != null ? ci.crcf9_price    : '',
+      price:      ci.crcf9_purchase_price != null ? ci.crcf9_purchase_price : '',
       quantity:   ci.crcf9_quantity != null ? ci.crcf9_quantity : '',
       netW:       ci.crcf9_n_w      != null ? ci.crcf9_n_w      : '',
       etdRaw:     bk.cr49f_etd ? new Date(bk.cr49f_etd) : null,
