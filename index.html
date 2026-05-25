@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v2.11.2</title>
+<title>LEENAI Shipping Schedule 送付ツール v2.11.3</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -103,7 +103,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v2.11.2</span>
+  <span class="header-ver">v2.11.3</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -469,6 +469,16 @@ async function fetchActiveContractGuids(token) {
 // ═══════════════════════════════════════════
 async function fetchBookingsByContracts(contractGuids, token) {
   addLog('📦 Step2: ブッキング情報を取得中...', '');
+
+  // booking の全フィールドを probe して buyer フィールド名を確認
+  const probeUrl = `cr49f_bookings?$filter=_cr49f_sale_contract_id_value eq ${contractGuids[0]}&$top=1`;
+  const probeRows = await d365Get(probeUrl, token);
+  const probeRow  = Array.isArray(probeRows) ? probeRows[0] : probeRows;
+  if (probeRow) {
+    const allFields = Object.keys(probeRow).filter(k => !k.includes('@'));
+    addLog(`📋 booking 全フィールド: ${allFields.join(', ')}`, '');
+  }
+
   const all = [];
   const CHUNK = 10;
   for (let i = 0; i < contractGuids.length; i += CHUNK) {
@@ -478,12 +488,8 @@ async function fetchBookingsByContracts(contractGuids, token) {
       `cr49f_sale_contract_id($select=cr49f_sale_contract_no,cr49f_sale_contract_date,`,
       `cr49f_latest_shipment,cr49f_po_no,_cr49f_agent_id_value)`,
     ].join('');
-    const url = `cr49f_bookings?$filter=${filter}`
-              + `&$select=cr49f_booking_id,cr49f_bl_number,cr49f_booking_no,cr49f_invoice_no,`
-              + `cr49f_main_ship_name,cr49f_etd,cr49f_eta,crcf9_bl_eta,`
-              + `_cr49f_carrier_id_value,_cr49f_region_japan_id_value,_cr49f_region_id_value,`
-              + `_cr49f_sale_contract_id_value`
-              + `&$expand=${expand}`;
+    // $select なし → 全フィールド取得 (buyer フィールド名が未確定のため)
+    const url = `cr49f_bookings?$filter=${filter}&$expand=${expand}`;
     const rows = await d365Get(url, token);
     all.push(...(Array.isArray(rows) ? rows : [rows]));
     setProgress(20 + Math.round(30 * (i / contractGuids.length)), `ブッキング取得中 ${all.length}件...`);
@@ -529,9 +535,9 @@ async function fetchContainerInfos(bookingGuids, token) {
 // D365 応答 → scheduleRows 変換 (v2.11追加)
 // ═══════════════════════════════════════════
 function buildScheduleRowsFromD365(bookings, containerInfos) {
-  // booking GUID → booking マップ (正しいフィールド名: cr49f_booking_id)
+  // booking GUID → booking マップ (PK: cr49f_bookingid)
   const bMap = {};
-  bookings.forEach(b => { bMap[b.cr49f_booking_id] = b; });
+  bookings.forEach(b => { bMap[b.cr49f_bookingid] = b; });
 
   // booking 全フィールドをログ出力 (buyer フィールド名確認用)
   const firstBk = bookings[0] || {};
@@ -585,7 +591,7 @@ function buildScheduleRowsFromD365(bookings, containerInfos) {
     return a.etdRaw - b.etdRaw;
   });
 
-  return rows.filter(r => r.buyer);
+  return rows;
 }
 
 // ═══════════════════════════════════════════
