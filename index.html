@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v2.11.6</title>
+<title>LEENAI Shipping Schedule 送付ツール v2.11.7</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -103,7 +103,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v2.11.6</span>
+  <span class="header-ver">v2.11.7</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -533,10 +533,12 @@ function buildScheduleRowsFromD365(bookings, containerInfos) {
 
     const sc = bk.cr49f_sale_contract_id || {};
     const buyerData = sc.cr49f_buyer_id || {};
-    const buyerName = buyerData.cr49f_buyer_name
+    // Power Query と同じフィールド: cr49f_buyer.cr49f_buyer (short code)
+    const buyerName = buyerData.cr49f_buyer
                    || sc['_cr49f_buyer_id_value@OData.Community.Display.V1.FormattedValue'] || '';
     const agentData = sc.cr49f_agent_id || {};
-    const agentName = agentData.cr49f_agent_name
+    // Power Query と同じフィールド: cr49f_agent.cr49f_agent (short code)
+    const agentName = agentData.cr49f_agent
                    || sc['_cr49f_agent_id_value@OData.Community.Display.V1.FormattedValue']
                    || sc['_cr49f_agent_id_value'] || '';
 
