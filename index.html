@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v2.12.0</title>
+<title>LEENAI Shipping Schedule 送付ツール v2.13.0</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -103,7 +103,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v2.12.0</span>
+  <span class="header-ver">v2.13.0</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -477,13 +477,15 @@ async function fetchBookingsByContracts(contractGuids, token) {
     const filter = chunk.map(g => `_cr49f_sale_contract_id_value eq ${g}`).join(' or ');
     const expand = `cr49f_sale_contract_id(`
                  + `$select=cr49f_sale_contract_no,cr49f_sale_contract_date,`
-                 + `cr49f_latest_shipment,cr49f_po_no,_cr49f_agent_id_value,_cr49f_buyer_id_value;`
+                 + `cr49f_latest_shipment,cr49f_po_no;`
                  + `$expand=cr49f_buyer_id($select=cr49f_buyer_name,cr49f_buyer),`
-                 + `cr49f_agent_id($select=cr49f_agent_name,cr49f_agent))`;
+                 + `cr49f_agent_id($select=cr49f_agent_name,cr49f_agent)),`
+                 + `cr49f_carrier_id($select=crcf9_carrier),`
+                 + `cr49f_region_japan_id($select=crcf9_pol),`
+                 + `cr49f_region_id($select=cr49f_region)`;
     const url = `cr49f_bookings?$filter=${filter}`
               + `&$select=cr49f_bookingid,cr49f_bl_number,cr49f_booking_no,cr49f_invoice_no,`
-              + `cr49f_main_ship_name,cr49f_etd,cr49f_eta,crcf9_bl_eta,`
-              + `_cr49f_carrier_id_value,_cr49f_region_japan_id_value,_cr49f_region_id_value,`
+              + `cr49f_main_ship_name,cr49f_etd,cr49f_eta,`
               + `_cr49f_sale_contract_id_value`
               + `&$expand=${expand}`;
     const rows = await d365Get(url, token);
@@ -507,8 +509,8 @@ async function fetchContainerInfos(bookingGuids, token) {
     const filter = chunk.map(g => `_crcf9_booking_id_value eq ${g}`).join(' or ');
     const url = `crcf9_container_informations?$filter=${filter}`
               + `&$select=crcf9_container_informationid,_crcf9_booking_id_value,`
-              + `crcf9_n_w,crcf9_quantity,crcf9_container_no,crcf9_type`
-              + `&$expand=crcf9_item_id($select=cr49f_item_name),`
+              + `crcf9_n_w,crcf9_container_no,crcf9_type`
+              + `&$expand=crcf9_item_id($select=cr49f_item,cr49f_item_name),`
               + `crcf9_sale_detail_id($select=cr49f_price,cr49f_quantity)`;
     const rows = await d365Get(url, token);
     all.push(...(Array.isArray(rows) ? rows : [rows]));
@@ -522,57 +524,93 @@ async function fetchContainerInfos(bookingGuids, token) {
 // D365 応答 → scheduleRows 変換 (v2.11追加)
 // ═══════════════════════════════════════════
 function buildScheduleRowsFromD365(bookings, containerInfos) {
-  // booking GUID → booking マップ (PK: cr49f_bookingid)
-  const bMap = {};
-  bookings.forEach(b => { bMap[b.cr49f_bookingid] = b; });
-
-  // container_info 行ごとに1出力行
-  const rows = [];
+  // ① container_info を booking_id でグループ化
+  const ciByBooking = {};
   containerInfos.forEach(ci => {
-    const bk = bMap[ci._crcf9_booking_id_value];
-    if (!bk) return;
+    const bkId = ci._crcf9_booking_id_value;
+    if (!ciByBooking[bkId]) ciByBooking[bkId] = [];
+    ciByBooking[bkId].push(ci);
+  });
 
-    const sc = bk.cr49f_sale_contract_id || {};
-    const buyerData = sc.cr49f_buyer_id || {};
-    // Power Query と同じフィールド: cr49f_buyer.cr49f_buyer (short code)
-    const buyerName = buyerData.cr49f_buyer
-                   || sc['_cr49f_buyer_id_value@OData.Community.Display.V1.FormattedValue'] || '';
-    const agentData = sc.cr49f_agent_id || {};
-    // Power Query と同じフィールド: cr49f_agent.cr49f_agent (short code)
-    const agentName = agentData?.cr49f_agent
-                   || sc['_cr49f_agent_id_value@OData.Community.Display.V1.FormattedValue']
-                   || sc['cr49f_agent_id@OData.Community.Display.V1.FormattedValue']
-                   || '';
+  const rows = [];
 
-    const etd = bk.cr49f_etd ? bk.cr49f_etd.slice(0,10).replace(/-/g,'/') : '';
-    const eta = bk.cr49f_eta ? bk.cr49f_eta.slice(0,10).replace(/-/g,'/') : '';
+  bookings.forEach(bk => {
+    const sc        = bk.cr49f_sale_contract_id || {};
+    const buyerData = sc.cr49f_buyer_id  || {};
+    const agentData = sc.cr49f_agent_id  || {};
 
-    const containerStr = [ci.crcf9_container_no, ci.crcf9_type]
-      .filter(Boolean).join(' ').trim() || ' ';
+    // ② Buyer / Agent — Power Query と同じフィールド参照
+    const buyerName = (buyerData.cr49f_buyer  || '').trim();
+    const agentRaw  = (agentData.cr49f_agent  || '').toString().trim();
+    // agentが純粋な数字のみの場合はエージェントなし扱い
+    const agentName = /^\d+$/.test(agentRaw) ? '' : agentRaw;
 
-    rows.push({
-      buyer:      buyerName.trim(),
-      agent:      agentName.toString().trim(),
-      invoiceNo:  bk.cr49f_invoice_no  || '',
-      blNo:       bk.cr49f_bl_number   || '',
-      bookingNo:  bk.cr49f_booking_no  || '',
-      vessel:     bk.cr49f_main_ship_name || '',
-      carrier:    bk['_cr49f_carrier_id_value@OData.Community.Display.V1.FormattedValue'] || '',
-      pol:        bk['_cr49f_region_japan_id_value@OData.Community.Display.V1.FormattedValue'] || '',
-      pod:        bk['_cr49f_region_id_value@OData.Community.Display.V1.FormattedValue'] || '',
-      container:  containerStr,
-      etd,
-      eta,
-      coNo:       sc.cr49f_sale_contract_no  || '',
-      poNo:       sc.cr49f_po_no             || '',
-      item:       ci.crcf9_item_id ? (ci.crcf9_item_id.cr49f_item_name || '') : '',
-      price:      ci.crcf9_sale_detail_id?.cr49f_price ?? ci.crcf9_purchase_price ?? '',
-      quantity:   ci.crcf9_quantity != null ? ci.crcf9_quantity : '',
-      netW:       ci.crcf9_n_w      != null ? ci.crcf9_n_w      : '',
-      etdRaw:     bk.cr49f_etd ? new Date(bk.cr49f_etd) : null,
+    // ③ Carrier / POL / POD — $expand で取得した名称フィールドを参照
+    const carrier = bk.cr49f_carrier_id?.crcf9_carrier    || '';
+    const pol     = bk.cr49f_region_japan_id?.crcf9_pol   || '';
+    const pod     = bk.cr49f_region_id?.cr49f_region      || '';
+
+    // ④ 日付
+    const etd    = bk.cr49f_etd ? bk.cr49f_etd.slice(0,10).replace(/-/g,'/') : '';
+    const eta    = bk.cr49f_eta ? bk.cr49f_eta.slice(0,10).replace(/-/g,'/') : '';
+    const etdRaw = bk.cr49f_etd ? new Date(bk.cr49f_etd) : null;
+
+    // ⑤ このbookingに紐づくcontainer_info を取得
+    const containers = ciByBooking[bk.cr49f_bookingid] || [];
+    const containerCount = containers.length;
+
+    // ⑥ item/price コンボ別に N/W を集計 (通常は1コンボのみ)
+    const comboMap = {};
+    containers.forEach(ci => {
+      const item  = ci.crcf9_item_id?.cr49f_item || '';  // 短コード: JOCC, JKGB etc.
+      const price = ci.crcf9_sale_detail_id?.cr49f_price  ?? '';
+      const qty   = Number(ci.crcf9_sale_detail_id?.cr49f_quantity ?? 0); // 販売重量MT
+      const nwKg  = ci.crcf9_n_w != null ? Number(ci.crcf9_n_w) : 0;
+      const key   = `${item}||${price}`;
+      if (!comboMap[key]) {
+        comboMap[key] = { item, price, qty, netWkg: 0 };
+      }
+      comboMap[key].netWkg += nwKg;
+    });
+
+    // ⑦ コンテナなし booking も1行出力 (N/W=0, item='' で表示)
+    if (containers.length === 0) {
+      rows.push({
+        buyer: buyerName, agent: agentName,
+        invoiceNo: bk.cr49f_invoice_no  || '',
+        blNo:      bk.cr49f_bl_number   || '',
+        bookingNo: bk.cr49f_booking_no  || '',
+        vessel:    bk.cr49f_main_ship_name || '',
+        carrier, pol, pod, etd, eta, etdRaw,
+        coNo:      sc.cr49f_sale_contract_no || '',
+        poNo:      sc.cr49f_po_no || '',
+        container: '0',
+        item: '', price: '', quantity: 0, netW: 0,
+      });
+      return;
+    }
+
+    // ⑧ コンボ別に1行ずつ出力 (通常は1booking = 1コンボ = 1行)
+    Object.values(comboMap).forEach(combo => {
+      rows.push({
+        buyer: buyerName, agent: agentName,
+        invoiceNo: bk.cr49f_invoice_no  || '',
+        blNo:      bk.cr49f_bl_number   || '',
+        bookingNo: bk.cr49f_booking_no  || '',
+        vessel:    bk.cr49f_main_ship_name || '',
+        carrier, pol, pod, etd, eta, etdRaw,
+        coNo:      sc.cr49f_sale_contract_no || '',
+        poNo:      sc.cr49f_po_no || '',
+        container: String(containerCount),   // コンテナ本数
+        item:      combo.item,
+        price:     combo.price,
+        quantity:  combo.qty,                // 販売重量 MT (MT ヘッダー用)
+        netW:      Math.round(combo.netWkg / 10) / 100,  // kg÷1000→MT, 小数2桁
+      });
     });
   });
 
+  // ⑨ ETD 昇順ソート
   rows.sort((a, b) => {
     if (!a.etdRaw && !b.etdRaw) return 0;
     if (!a.etdRaw) return 1;
