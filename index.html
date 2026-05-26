@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v2.11.7</title>
+<title>LEENAI Shipping Schedule 送付ツール v2.11.8</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -103,7 +103,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v2.11.7</span>
+  <span class="header-ver">v2.11.8</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -507,8 +507,9 @@ async function fetchContainerInfos(bookingGuids, token) {
     const filter = chunk.map(g => `_crcf9_booking_id_value eq ${g}`).join(' or ');
     const url = `crcf9_container_informations?$filter=${filter}`
               + `&$select=crcf9_container_informationid,_crcf9_booking_id_value,`
-              + `crcf9_n_w,crcf9_quantity,crcf9_container_no,crcf9_type,crcf9_purchase_price`
-              + `&$expand=crcf9_item_id($select=cr49f_item_name)`;
+              + `crcf9_n_w,crcf9_quantity,crcf9_container_no,crcf9_type`
+              + `&$expand=crcf9_item_id($select=cr49f_item_name),`
+              + `crcf9_sale_detail_id($select=cr49f_price,cr49f_quantity)`;
     const rows = await d365Get(url, token);
     all.push(...(Array.isArray(rows) ? rows : [rows]));
     setProgress(50 + Math.round(30 * (i / bookingGuids.length)), `コンテナ情報取得中 ${all.length}件...`);
@@ -564,7 +565,7 @@ function buildScheduleRowsFromD365(bookings, containerInfos) {
       coNo:       sc.cr49f_sale_contract_no  || '',
       poNo:       sc.cr49f_po_no             || '',
       item:       ci.crcf9_item_id ? (ci.crcf9_item_id.cr49f_item_name || '') : '',
-      price:      ci.crcf9_purchase_price != null ? ci.crcf9_purchase_price : '',
+      price:      ci.crcf9_sale_detail_id?.cr49f_price ?? ci.crcf9_purchase_price ?? '',
       quantity:   ci.crcf9_quantity != null ? ci.crcf9_quantity : '',
       netW:       ci.crcf9_n_w      != null ? ci.crcf9_n_w      : '',
       etdRaw:     bk.cr49f_etd ? new Date(bk.cr49f_etd) : null,
