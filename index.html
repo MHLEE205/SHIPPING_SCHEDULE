@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v3.1</title>
+<title>LEENAI Shipping Schedule 送付ツール v3.2</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -103,7 +103,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v3.1</span>
+  <span class="header-ver">v3.2</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -551,9 +551,10 @@ function buildScheduleRowsFromD365(bookings, containerInfos) {
     const pod     = bk.cr49f_region_id?.cr49f_pod          || '';
 
     // ④ 日付
-    const blDate = bk.crcf9_bl_etd ? bk.crcf9_bl_etd.slice(0,10).replace(/-/g,'/') : '';
-    const eta    = bk.cr49f_eta    ? bk.cr49f_eta.slice(0,10).replace(/-/g,'/') : '';
-    const etdRaw = bk.cr49f_etd   ? new Date(bk.cr49f_etd) : null; // 정렬用、非表示
+    const blDate    = bk.crcf9_bl_etd ? bk.crcf9_bl_etd.slice(0,10).replace(/-/g,'/') : '';
+    const blDateRaw = bk.crcf9_bl_etd ? new Date(bk.crcf9_bl_etd) : null;
+    const eta       = bk.cr49f_eta    ? bk.cr49f_eta.slice(0,10).replace(/-/g,'/') : '';
+    const etdRaw    = bk.cr49f_etd   ? new Date(bk.cr49f_etd) : null; // fallback용
 
     // ⑤ このbookingに紐づくcontainer_info を取得
     const containers = ciByBooking[bk.cr49f_bookingid] || [];
@@ -594,7 +595,7 @@ function buildScheduleRowsFromD365(bookings, containerInfos) {
       blNo:      bk.cr49f_bl_number   || '',
       bookingNo: bk.cr49f_booking_no  || '',
       vessel:    bk.cr49f_main_ship_name || '',
-      carrier, pol, pod, blDate, eta, etdRaw,
+      carrier, pol, pod, blDate, blDateRaw, eta, etdRaw,
       coNo,
       poNo:      sc.cr49f_po_no || '',
       container: String(containerCount),
@@ -603,12 +604,14 @@ function buildScheduleRowsFromD365(bookings, containerInfos) {
     });
   });
 
-  // ⑨ ETD 昇順ソート
+  // ⑨ BL DATE 昇順ソート (null の場合は ETD で fallback)
   rows.sort((a, b) => {
-    if (!a.etdRaw && !b.etdRaw) return 0;
-    if (!a.etdRaw) return 1;
-    if (!b.etdRaw) return -1;
-    return a.etdRaw - b.etdRaw;
+    const da = a.blDateRaw || a.etdRaw;
+    const db = b.blDateRaw || b.etdRaw;
+    if (!da && !db) return 0;
+    if (!da) return 1;
+    if (!db) return -1;
+    return da - db;
   });
 
   return rows;
