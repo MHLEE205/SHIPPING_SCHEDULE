@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v2.13.0</title>
+<title>LEENAI Shipping Schedule 送付ツール v3.1</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -103,7 +103,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v2.13.0</span>
+  <span class="header-ver">v3.1</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -482,10 +482,10 @@ async function fetchBookingsByContracts(contractGuids, token) {
                  + `cr49f_agent_id($select=cr49f_agent_name,cr49f_agent)),`
                  + `cr49f_carrier_id($select=crcf9_carrier),`
                  + `cr49f_region_japan_id($select=crcf9_pol),`
-                 + `cr49f_region_id($select=cr49f_region)`;
+                 + `cr49f_region_id($select=cr49f_pod)`;
     const url = `cr49f_bookings?$filter=${filter}`
               + `&$select=cr49f_bookingid,cr49f_bl_number,cr49f_booking_no,cr49f_invoice_no,`
-              + `cr49f_main_ship_name,cr49f_etd,cr49f_eta,`
+              + `cr49f_main_ship_name,cr49f_etd,cr49f_eta,crcf9_bl_etd,`
               + `_cr49f_sale_contract_id_value`
               + `&$expand=${expand}`;
     const rows = await d365Get(url, token);
@@ -548,23 +548,23 @@ function buildScheduleRowsFromD365(bookings, containerInfos) {
     // ③ Carrier / POL / POD — $expand で取得した名称フィールドを参照
     const carrier = bk.cr49f_carrier_id?.crcf9_carrier    || '';
     const pol     = bk.cr49f_region_japan_id?.crcf9_pol   || '';
-    const pod     = bk.cr49f_region_id?.cr49f_region      || '';
+    const pod     = bk.cr49f_region_id?.cr49f_pod          || '';
 
     // ④ 日付
-    const etd    = bk.cr49f_etd ? bk.cr49f_etd.slice(0,10).replace(/-/g,'/') : '';
-    const eta    = bk.cr49f_eta ? bk.cr49f_eta.slice(0,10).replace(/-/g,'/') : '';
-    const etdRaw = bk.cr49f_etd ? new Date(bk.cr49f_etd) : null;
+    const blDate = bk.crcf9_bl_etd ? bk.crcf9_bl_etd.slice(0,10).replace(/-/g,'/') : '';
+    const eta    = bk.cr49f_eta    ? bk.cr49f_eta.slice(0,10).replace(/-/g,'/') : '';
+    const etdRaw = bk.cr49f_etd   ? new Date(bk.cr49f_etd) : null; // 정렬用、非表示
 
     // ⑤ このbookingに紐づくcontainer_info を取得
     const containers = ciByBooking[bk.cr49f_bookingid] || [];
     const containerCount = containers.length;
 
-    // ⑥ item/price コンボ別に N/W を集計 (通常は1コンボのみ)
+    // ⑥ item/price コンボ別に N/W を集計
     const comboMap = {};
     containers.forEach(ci => {
-      const item  = ci.crcf9_item_id?.cr49f_item || '';  // 短コード: JOCC, JKGB etc.
+      const item  = ci.crcf9_item_id?.cr49f_item || '';
       const price = ci.crcf9_sale_detail_id?.cr49f_price  ?? '';
-      const qty   = Number(ci.crcf9_sale_detail_id?.cr49f_quantity ?? 0); // 販売重量MT
+      const qty   = Number(ci.crcf9_sale_detail_id?.cr49f_quantity ?? 0);
       const nwKg  = ci.crcf9_n_w != null ? Number(ci.crcf9_n_w) : 0;
       const key   = `${item}||${price}`;
       if (!comboMap[key]) {
@@ -573,40 +573,33 @@ function buildScheduleRowsFromD365(bookings, containerInfos) {
       comboMap[key].netWkg += nwKg;
     });
 
-    // ⑦ コンテナなし booking も1行出力 (N/W=0, item='' で表示)
-    if (containers.length === 0) {
-      rows.push({
-        buyer: buyerName, agent: agentName,
-        invoiceNo: bk.cr49f_invoice_no  || '',
-        blNo:      bk.cr49f_bl_number   || '',
-        bookingNo: bk.cr49f_booking_no  || '',
-        vessel:    bk.cr49f_main_ship_name || '',
-        carrier, pol, pod, etd, eta, etdRaw,
-        coNo:      sc.cr49f_sale_contract_no || '',
-        poNo:      sc.cr49f_po_no || '',
-        container: '0',
-        item: '', price: '', quantity: 0, netW: 0,
-      });
-      return;
-    }
+    // ⑦ Bug 5: N/W 총합=0 & container=0 인 물량미확정 부킹 제외
+    const totalNWkg = Object.values(comboMap).reduce((s, c) => s + c.netWkg, 0);
+    if (totalNWkg === 0 && containerCount === 0) return;
 
-    // ⑧ コンボ別に1行ずつ出力 (通常は1booking = 1コンボ = 1行)
+    // ⑧ nwMap / qtyMap を構築 (Bug 3+4: 1부킹=1행, 멀티GRADE 지원)
+    const coNo  = sc.cr49f_sale_contract_no || '';
+    const nwMap  = {};
+    const qtyMap = {};
     Object.values(comboMap).forEach(combo => {
-      rows.push({
-        buyer: buyerName, agent: agentName,
-        invoiceNo: bk.cr49f_invoice_no  || '',
-        blNo:      bk.cr49f_bl_number   || '',
-        bookingNo: bk.cr49f_booking_no  || '',
-        vessel:    bk.cr49f_main_ship_name || '',
-        carrier, pol, pod, etd, eta, etdRaw,
-        coNo:      sc.cr49f_sale_contract_no || '',
-        poNo:      sc.cr49f_po_no || '',
-        container: String(containerCount),   // コンテナ本数
-        item:      combo.item,
-        price:     combo.price,
-        quantity:  combo.qty,                // 販売重量 MT (MT ヘッダー用)
-        netW:      Math.round(combo.netWkg / 10) / 100,  // kg÷1000→MT, 小数2桁
-      });
+      const key = `${coNo}||${combo.item}||${combo.price}`;
+      nwMap[key]  = Math.round(combo.netWkg / 10) / 100;  // kg÷1000→MT, 소수2자리
+      qtyMap[key] = combo.qty;
+    });
+
+    // ⑨ 1부킹 = 1행
+    rows.push({
+      buyer: buyerName, agent: agentName,
+      invoiceNo: bk.cr49f_invoice_no  || '',
+      blNo:      bk.cr49f_bl_number   || '',
+      bookingNo: bk.cr49f_booking_no  || '',
+      vessel:    bk.cr49f_main_ship_name || '',
+      carrier, pol, pod, blDate, eta, etdRaw,
+      coNo,
+      poNo:      sc.cr49f_po_no || '',
+      container: String(containerCount),
+      nwMap,
+      qtyMap,
     });
   });
 
@@ -1330,19 +1323,29 @@ function generateExcel(b) {
     ws[addr] = {v: Number(v)||0, t:'n', s};
   };
 
-  // ── CO_NO × Item 조합 수집 (출현 순서 유지) ──
+  // ── CO_NO × Item 조합 수집 (nwMap から全コンボ収集、CO_NO→GRADE 昇順ソート) ──
   const combos = [];
   const seen   = new Set();
   b.rows.forEach(r => {
-    const key = `${r.coNo}||${r.item}||${r.price}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      combos.push({co:r.coNo||'', po:r.poNo||'', item:r.item||'',
-                   price:r.price||0, qty:r.quantity||0});
-    }
+    Object.keys(r.nwMap).forEach(key => {
+      if (!seen.has(key)) {
+        seen.add(key);
+        const [co, item, priceStr] = key.split('||');
+        combos.push({
+          co,
+          item,
+          price: Number(priceStr),
+          qty:   r.qtyMap[key] || 0,
+          po:    r.poNo || '',
+        });
+      }
+    });
   });
+  combos.sort((a, b) =>
+    a.co.localeCompare(b.co) || a.item.localeCompare(b.item) || a.price - b.price
+  );
 
-  const N_FIXED = 10; // A~J: ETD ETA Invoice Carrier Vessel BookingNo BLNo POL POD Container
+  const N_FIXED = 10; // A~J: BL DATE ETA Invoice Carrier Vessel BookingNo BLNo POL POD Container
   const lastCol = N_FIXED + combos.length - 1; // 0-indexed
 
   // ── ROW 0: Buyer 라벨 ──
@@ -1395,7 +1398,7 @@ function generateExcel(b) {
 
   // ── ROW 5: 컬럼 헤더 ──
   const HDR_ROW = 5;
-  const mainHdrs = ['ETD','ETA','Invoice No.','Carrier','Vessel',
+  const mainHdrs = ['BL DATE','ETA','Invoice No.','Carrier','Vessel',
                     'Booking No.','BL No.','POL','POD','Container'];
   mainHdrs.forEach((h,i) => {
     setC(enc(HDR_ROW,i), h, {
@@ -1415,24 +1418,23 @@ function generateExcel(b) {
   b.rows.forEach((r, ri) => {
     const row = DATA_START + ri;
     const bg  = ri%2===0 ? WHITE : GRAY;
-    const vals = [r.etd, r.eta, r.invoiceNo, r.carrier, r.vessel,
+    const vals = [r.blDate, r.eta, r.invoiceNo, r.carrier, r.vessel,
                   r.bookingNo, r.blNo||'', r.pol, r.pod, r.container];
     vals.forEach((v,ci) => {
       setC(enc(row,ci), String(v||''), {
-        font: fnt(ci===0, '000000', 8),   // ETD 볼드
+        font: fnt(ci===0, '000000', 8),   // BL DATE 볼드
         fill: fill(bg),
         alignment: aln('center'),
         border: bdr()
       });
     });
-    // Net_W를 해당 조합 열에
+    // Net_W를 해당 조합 열에 (nwMap から直接引く)
     combos.forEach((combo, ci) => {
       const col = N_FIXED + ci;
-      const match = String(combo.co||'') === String(r.coNo||'') &&
-                    String(combo.item||'') === String(r.item||'') &&
-                    Number(combo.price) === Number(r.price);
-      if (match && r.netW) {
-        setN(enc(row,col), Math.round(Number(r.netW)*100)/100, {
+      const key = `${combo.co}||${combo.item}||${combo.price}`;
+      const nw  = r.nwMap[key];
+      if (nw) {
+        setN(enc(row,col), Math.round(Number(nw)*100)/100, {
           font:fnt(false,'000000',8), fill:fill(bg),
           alignment:aln('right'), border:bdr(), numFmt:'#,##0.00'
         });
@@ -1450,12 +1452,8 @@ function generateExcel(b) {
          alignment:aln(c===0?'center':'left'), border:bdrMed()}};
   }
   combos.forEach((combo, ci) => {
-    const total = b.rows.reduce((sum,r) => {
-      const match = String(combo.co||'') === String(r.coNo||'') &&
-                    String(combo.item||'') === String(r.item||'') &&
-                    Number(combo.price) === Number(r.price);
-      return sum + (match ? Number(r.netW)||0 : 0);
-    }, 0);
+    const key = `${combo.co}||${combo.item}||${combo.price}`;
+    const total = b.rows.reduce((sum, r) => sum + (Number(r.nwMap[key]) || 0), 0);
     setN(enc(TOTAL_ROW, N_FIXED+ci), Math.round(total*100)/100, {
       font:fnt(true,NAVY,9), fill:fill(TOTAL),
       alignment:aln('right'), border:bdrMed(), numFmt:'#,##0.00'
