@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v2.11.8</title>
+<title>LEENAI Shipping Schedule 送付ツール v2.12.0</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -103,7 +103,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v2.11.8</span>
+  <span class="header-ver">v2.12.0</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -432,7 +432,7 @@ async function d365Get(relUrl, token) {
       'Accept': 'application/json',
       'OData-MaxVersion': '4.0',
       'OData-Version': '4.0',
-      'Prefer': 'odata.include-annotations="OData.Community.Display.V1.FormattedValue"',
+      'Prefer': 'odata.include-annotations="*"',
     }
   });
   if (!resp.ok) {
@@ -539,9 +539,10 @@ function buildScheduleRowsFromD365(bookings, containerInfos) {
                    || sc['_cr49f_buyer_id_value@OData.Community.Display.V1.FormattedValue'] || '';
     const agentData = sc.cr49f_agent_id || {};
     // Power Query と同じフィールド: cr49f_agent.cr49f_agent (short code)
-    const agentName = agentData.cr49f_agent
+    const agentName = agentData?.cr49f_agent
                    || sc['_cr49f_agent_id_value@OData.Community.Display.V1.FormattedValue']
-                   || sc['_cr49f_agent_id_value'] || '';
+                   || sc['cr49f_agent_id@OData.Community.Display.V1.FormattedValue']
+                   || '';
 
     const etd = bk.cr49f_etd ? bk.cr49f_etd.slice(0,10).replace(/-/g,'/') : '';
     const eta = bk.cr49f_eta ? bk.cr49f_eta.slice(0,10).replace(/-/g,'/') : '';
@@ -603,7 +604,7 @@ function buildBuyerData(scheduleRows, mailMap) {
 
   buyerData = Object.entries(groups).map(([buyer, rows]) => {
     const agent = (rows[0].agent || '').toString().trim();
-    const agentIsZero = agent === '0' || agent === '';
+    const agentIsZero = agent === '' || /^\d+$/.test(agent);
 
     let resolved = null;
     let sendType = '';
@@ -1295,7 +1296,7 @@ function generateExcel(b) {
   const combos = [];
   const seen   = new Set();
   b.rows.forEach(r => {
-    const key = `${r.coNo}||${r.item}||${r.price}||${r.quantity}`;
+    const key = `${r.coNo}||${r.item}||${r.price}`;
     if (!seen.has(key)) {
       seen.add(key);
       combos.push({co:r.coNo||'', po:r.poNo||'', item:r.item||'',
@@ -1389,10 +1390,9 @@ function generateExcel(b) {
     // Net_W를 해당 조합 열에
     combos.forEach((combo, ci) => {
       const col = N_FIXED + ci;
-      const match = combo.co===String(r.coNo||'') &&
-                    combo.item===String(r.item||'') &&
-                    Number(combo.price)===Number(r.price) &&
-                    Number(combo.qty)===Number(r.quantity);
+      const match = String(combo.co||'') === String(r.coNo||'') &&
+                    String(combo.item||'') === String(r.item||'') &&
+                    Number(combo.price) === Number(r.price);
       if (match && r.netW) {
         setN(enc(row,col), Math.round(Number(r.netW)*100)/100, {
           font:fnt(false,'000000',8), fill:fill(bg),
@@ -1413,10 +1413,9 @@ function generateExcel(b) {
   }
   combos.forEach((combo, ci) => {
     const total = b.rows.reduce((sum,r) => {
-      const match = combo.co===String(r.coNo||'') &&
-                    combo.item===String(r.item||'') &&
-                    Number(combo.price)===Number(r.price) &&
-                    Number(combo.qty)===Number(r.quantity);
+      const match = String(combo.co||'') === String(r.coNo||'') &&
+                    String(combo.item||'') === String(r.item||'') &&
+                    Number(combo.price) === Number(r.price);
       return sum + (match ? Number(r.netW)||0 : 0);
     }, 0);
     setN(enc(TOTAL_ROW, N_FIXED+ci), Math.round(total*100)/100, {
