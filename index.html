@@ -629,10 +629,12 @@ function buildBuyerData(scheduleRows, mailMap) {
 
   Object.values(groups).forEach(rows => {
     rows.sort((a, b) => {
-      if (!a.etdRaw && !b.etdRaw) return 0;
-      if (!a.etdRaw) return 1;
-      if (!b.etdRaw) return -1;
-      return a.etdRaw - b.etdRaw;
+      const da = a.blDateRaw || a.etdRaw;
+      const db = b.blDateRaw || b.etdRaw;
+      if (!da && !db) return 0;
+      if (!da) return 1;
+      if (!db) return -1;
+      return da - db;
     });
   });
 
