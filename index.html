@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v3.3</title>
+<title>LEENAI Shipping Schedule 送付ツール v3.4</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -103,7 +103,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v3.3</span>
+  <span class="header-ver">v3.4</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -371,12 +371,122 @@ async function exchangeCodeForToken(code) {
   const data = await resp.json();
   if (!resp.ok) throw new Error(data.error_description || data.error || 'Token取得失敗');
   graphToken = data.access_token;
-  if (data.refresh_token) await dbSet('refreshToken', data.refresh_token);
+  if (data.refresh_token) {
+    await dbSet('refreshToken', data.refresh_token);
+    await dbSet('tokenSavedAt', Date.now()); // 로그인 날짜 기록
+  }
   // ユーザー情報
   const me = await (await fetch('https://graph.microsoft.com/v1.0/me',
     { headers:{ 'Authorization': `Bearer ${graphToken}` } })).json();
   loggedInUser = me.mail || me.userPrincipalName || 'ログイン済み';
   updateAuthUI(true);
+}
+
+// ── Refresh Token으로 자동 재인증 ──────────────────────
+async function silentRefresh() {
+  const storedRefresh = await dbGet('refreshToken');
+  if (!storedRefresh) return false;
+
+  const body = new URLSearchParams({
+    client_id:     OAUTH.clientId,
+    grant_type:    'refresh_token',
+    refresh_token: storedRefresh,
+    scope:         OAUTH.scopes,
+  });
+
+  const resp = await fetch(
+    `https://login.microsoftonline.com/${OAUTH.tenantId}/oauth2/v2.0/token`,
+    { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body }
+  );
+  const data = await resp.json();
+
+  if (!resp.ok) {
+    // Refresh Token 만료 → 클리어
+    await dbSet('refreshToken', null);
+    await dbSet('tokenSavedAt', null);
+    return false;
+  }
+
+  graphToken = data.access_token;
+  if (data.refresh_token) {
+    await dbSet('refreshToken', data.refresh_token);
+    await dbSet('tokenSavedAt', Date.now()); // 갱신 날짜 기록
+  }
+
+  const me = await (await fetch('https://graph.microsoft.com/v1.0/me',
+    { headers: { 'Authorization': `Bearer ${graphToken}` } })).json();
+  loggedInUser = me.mail || me.userPrincipalName || 'ログイン済み';
+  updateAuthUI(true);
+  return true;
+}
+
+// ── 토큰 만료 10일 전 경고 메일 발송 ─────────────────────
+async function checkTokenExpiry() {
+  const savedAt = await dbGet('tokenSavedAt');
+  if (!savedAt || !graphToken) return;
+
+  const daysPassed = (Date.now() - savedAt) / (1000 * 60 * 60 * 24);
+  const daysLeft   = 80 - daysPassed; // Refresh Token은 90일, 80일 지나면 경고
+
+  if (daysLeft > 10) return; // 아직 여유 있음
+
+  // 이미 경고 발송했으면 스킵 (오늘 날짜 체크)
+  const lastWarn = await dbGet('lastWarnDate');
+  const today    = new Date().toDateString();
+  if (lastWarn === today) return;
+
+  // 경고 메일 발송
+  const daysLeftRounded = Math.max(0, Math.floor(daysLeft));
+  const subject = `[LEENAI 警告] Shipping Schedule ツール 再ログイン必要 (残り${daysLeftRounded}日)`;
+  const body    = [
+    `LEENAI Shipping Schedule 送付ツールの認証トークンの有効期限が近づいています。`,
+    ``,
+    `残り日数: 約${daysLeftRounded}日`,
+    ``,
+    `【対応方法】`,
+    `1. https://mhlee205.github.io/SHIPPING_SCHEDULE/ を開く`,
+    `2. 「🔑 Outlookログイン」ボタンをクリック`,
+    `3. rpa@leenearcorp.com でログイン`,
+    ``,
+    `ログイン後、次の90日間は再ログイン不要になります。`,
+    ``,
+    `─────────────────────────────`,
+    `✦ Powered by LEENAI Automation System`,
+  ].join('\r\n');
+
+  try {
+    await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${graphToken}`,
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify({
+        message: {
+          subject,
+          body:         { contentType: 'Text', content: body },
+          toRecipients: [
+            { emailAddress: { address: 'mh_lee@leenearcorp.com' } },
+            { emailAddress: { address: 'rpa@leenearcorp.com' } },
+          ],
+        },
+        saveToSentItems: false,
+      }),
+    });
+    await dbSet('lastWarnDate', today);
+    console.log('[LEENAI] 토큰 만료 경고 메일 발송 완료');
+  } catch(e) {
+    console.warn('[LEENAI] 경고 메일 발송 실패:', e.message);
+  }
+}
+
+// ── 페이지 로드 시 자동 로그인 시도 ──────────────────────
+async function tryAutoLogin() {
+  const ok = await silentRefresh();
+  if (ok) {
+    await checkTokenExpiry(); // 로그인 성공 후 만료 체크
+  }
+  // 실패해도 그냥 로그인 버튼 표시 (에러 없이)
 }
 
 function updateAuthUI(loggedIn) {
@@ -1720,7 +1830,10 @@ function updateThemeBtn(theme) {
 (function() {
   const saved = localStorage.getItem('leenai_theme') || 'dark';
   document.documentElement.setAttribute('data-theme', saved);
-  document.addEventListener('DOMContentLoaded', () => updateThemeBtn(saved));
+  document.addEventListener('DOMContentLoaded', async () => {
+    updateThemeBtn(saved);
+    await tryAutoLogin(); // 자동 로그인 시도
+  });
 })();
 
 // ── ローディングオーバーレイ ────────────────
