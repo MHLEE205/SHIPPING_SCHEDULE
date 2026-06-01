@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v3.2</title>
+<title>LEENAI Shipping Schedule 送付ツール v3.3</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -103,7 +103,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v3.2</span>
+  <span class="header-ver">v3.3</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -180,7 +180,7 @@ tbody td:first-child{text-align:center;}
 <div id="sendPanel" style="display:flex">
   <div class="sel-info">選択中: <strong id="selCount">0</strong> 件</div>
   <button class="btn btn-ghost" onclick="previewSelected()">👁 内容確認</button>
-  <button class="btn btn-ok" onclick="sendSelectedGraph()" id="btnGraphSend">📝 選択分を下書き保存</button>
+  <button class="btn btn-ok" onclick="sendSelectedGraph()" id="btnGraphSend">📎 選択分を一括送付</button>
   <button class="btn btn-ghost" style="font-size:11px" onclick="sendSelected()">mailto方式</button>
 </div>
 
@@ -195,7 +195,7 @@ tbody td:first-child{text-align:center;}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModalDirect()">閉じる</button>
       <button class="btn btn-ghost" style="font-size:11px" id="modalMailtoBtn">📤 mailto方式</button>
-      <button class="btn btn-ok" id="modalSendBtn">📝 下書き保存</button>
+      <button class="btn btn-ok" id="modalSendBtn">📎 送付</button>
     </div>
   </div>
 </div>
@@ -904,20 +904,18 @@ async function sendMailGraph(b) {
     }]
   };
 
-  // ⚠️ 現在は下書き保存モード (送信しない)
-  // 送信準備ができたら createMessage → send に変更すること
-  const resp = await fetch('https://graph.microsoft.com/v1.0/me/messages', {
+  // ✅ 直接送付モード (sendMail API)
+  const resp = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
     method:  'POST',
     headers: {
       'Authorization': `Bearer ${graphToken}`,
       'Content-Type':  'application/json'
     },
-    body: JSON.stringify(message)
+    body: JSON.stringify({ message, saveToSentItems: true })
   });
 
-  if (resp.status === 201) {
-    const draft = await resp.json();
-    return draft.id; // 下書きID
+  if (resp.status === 202) {
+    return true; // 送付完了
   }
 
   // トークン期限切れ → 再ログイン
@@ -936,9 +934,9 @@ async function sendOneGraph(idx) {
   if (!b || b.sendType === 'nomail') return;
   if (!graphToken) { alert('先に「Outlookログイン」でログインしてください。'); return; }
   try {
-    addLog(`📝 ${b.buyer}: 下書き保存中...`, '');
+    addLog(`📤 ${b.buyer}: 送付中...`, '');
     await sendMailGraph(b);
-    addLog(`✅ ${b.buyer}: Outlookの下書きに保存しました`, 'ok');
+    addLog(`✅ ${b.buyer}: 送付完了`, 'ok');
   } catch(e) {
     addLog(`❌ ${b.buyer}: ${e.message}`, 'err');
     alert(`失敗 (${b.buyer}): ${e.message}`);
@@ -963,7 +961,7 @@ async function sendSelectedGraph() {
     setProgress(Math.round((i / targets.length) * 100), `${b.buyer} 送信中... (${i+1}/${targets.length})`);
     try {
       await sendMailGraph(b);
-      addLog(`✅ ${b.buyer}: 下書き保存完了`, 'ok');
+      addLog(`✅ ${b.buyer}: 送付完了`, 'ok');
       ok++;
     } catch(e) {
       addLog(`❌ ${b.buyer}: ${e.message}`, 'err');
@@ -971,7 +969,7 @@ async function sendSelectedGraph() {
     }
     await sleep(500);
   }
-  setProgress(100, `完了 (下書き保存): 成功 ${ok}件 / 失敗 ${ng}件`);
+  setProgress(100, `完了 (送付): 成功 ${ok}件 / 失敗 ${ng}件`);
 }
 
 // ═══════════════════════════════════════════
@@ -1236,7 +1234,7 @@ function renderTable() {
           onclick="previewOne(${idx})">👁 確認</button>
         ${b.sendType!=='nomail'
           ? `<button class="btn btn-ok" style="font-size:.75rem;padding:5px 10px;margin-left:4px"
-              onclick="sendOneGraph(${idx})">📝 下書き</button>`
+              onclick="sendOneGraph(${idx})">📎 送付</button>`
           : ''}
       </td>
     `;
@@ -1656,7 +1654,7 @@ function previewOne(idx) {
     mailtoBtn.style.display = 'none';
   } else {
     sendBtn.disabled = false;
-    sendBtn.textContent = '📝 下書き保存';
+    sendBtn.textContent = '📎 送付';
     sendBtn.onclick = () => { closeModalDirect(); sendOneGraph(idx); };
     mailtoBtn.onclick = () => { closeModalDirect(); sendOne(idx); };
   }
