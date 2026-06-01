@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v3.4</title>
+<title>LEENAI Shipping Schedule 送付ツール v3.5</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -103,7 +103,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v3.4</span>
+  <span class="header-ver">v3.5</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -181,6 +181,7 @@ tbody td:first-child{text-align:center;}
   <div class="sel-info">選択中: <strong id="selCount">0</strong> 件</div>
   <button class="btn btn-ghost" onclick="previewSelected()">👁 内容確認</button>
   <button class="btn btn-ok" onclick="sendSelectedGraph()" id="btnGraphSend">📎 選択分を一括送付</button>
+  <button class="btn btn-ghost" onclick="sendSelectedDraft()" id="btnDraftSend">📝 選択分を下書き保存</button>
   <button class="btn btn-ghost" style="font-size:11px" onclick="sendSelected()">mailto方式</button>
 </div>
 
@@ -926,7 +927,7 @@ async function sendMailGraph(b) {
   }
 
   const ymd = todayYMD();
-  const subject = `[SendOnly-Shipping Schedule notice] ${b.buyer}_${ymd}`;
+  const subject = `[LEENEAR AutoSend] ${b.buyer} - Shipping Schedule ${ymd}`;
 
   // ── Contract / PO No. 組み立て ──
   // CO_NO × PO_No の組合せを収集 (重複除去)
@@ -1037,6 +1038,154 @@ async function sendMailGraph(b) {
 
   const err = await resp.text();
   throw new Error(`Graph API エラー (${resp.status}): ${err}`);
+}
+
+// ── Graph API: 下書き保存 (担当者確認用) ──────────────────
+async function sendMailDraft(b) {
+  if (!graphToken) {
+    alert('先に「Outlookログイン」ボタンでログインしてください。');
+    return false;
+  }
+
+  const ymd = todayYMD();
+  const subject = `[LEENEAR AutoSend] ${b.buyer} - Shipping Schedule ${ymd}`;
+
+  // ── Contract / PO No. 組み立て (sendMailGraph と同じロジック) ──
+  const contracts = [];
+  const poNos     = [];
+  const seen = new Set();
+  let poSameAsCo = true;
+  b.rows.forEach(r => {
+    const co = (r.coNo || '').toString().trim();
+    const po = (r.poNo || '').toString().trim();
+    if (co && !seen.has(co)) { seen.add(co); contracts.push(co); }
+    if (po && po !== co && !poNos.includes(po)) poNos.push(po);
+    if (po && po !== co) poSameAsCo = false;
+  });
+
+  let contractLine = '';
+  let poLine = '';
+  if (poSameAsCo || poNos.length === 0) {
+    contractLine = contracts.length ? `  Contract / PO No. : ${contracts.join(' / ')}` : '';
+  } else {
+    contractLine = contracts.length ? `  Contract          : ${contracts.join(' / ')}` : '';
+    poLine = poNos.length ? `  PO No.            : ${poNos.join(' / ')}` : '';
+  }
+  const infoBlock = [contractLine, poLine, `  Buyer             : ${b.buyer}`]
+    .filter(Boolean).join('\n');
+
+  const bodyText = [
+    `Dear Sir/Madam,`,
+    ``,
+    `Please kindly find the attached shipping schedule.`,
+    ``,
+    infoBlock,
+    ``,
+    `Please feel free to contact us if you have any questions.`,
+    ``,
+    `Thanks,`,
+    `Best regards,`,
+    ``,
+    `LEENEAR CORPORATION`,
+    `TEL: +81-3-3528-9850  FAX: +81-3-3528-9851`,
+    `E-mail: rcp@leenearcorp.com`,
+    `Web: www.leenearcorp.com`,
+    `─────────────────────────────────────────`,
+    `✦ Powered by LEENAI Automation System`,
+  ].join('\r\n');
+
+  const ccAddresses = [b.emailCC, 'rcp@leenearcorp.com']
+    .flatMap(s => (s||'').split(';'))
+    .filter(Boolean)
+    .filter((v,i,a) => a.indexOf(v) === i)
+    .map(addr => ({emailAddress:{address:addr}}));
+
+  const excelData = generateExcel(b);
+  const bytes2 = new Uint8Array(excelData);
+  let binary = '';
+  for (let i = 0; i < bytes2.length; i += 8192) {
+    binary += String.fromCharCode(...bytes2.subarray(i, i + 8192));
+  }
+  const base64   = btoa(binary);
+  const fileName = `Shipping Schedule_${b.buyer}_${ymd}.xlsx`;
+
+  const message = {
+    subject,
+    body:         { contentType: 'Text', content: bodyText },
+    toRecipients: [{ emailAddress: { address: b.emailTo } }],
+    ccRecipients: ccAddresses,
+    attachments:  [{
+      '@odata.type': '#microsoft.graph.fileAttachment',
+      name:          fileName,
+      contentType:   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      contentBytes:  base64
+    }]
+  };
+
+  // 下書き保存
+  const resp = await fetch('https://graph.microsoft.com/v1.0/me/messages', {
+    method:  'POST',
+    headers: {
+      'Authorization': `Bearer ${graphToken}`,
+      'Content-Type':  'application/json'
+    },
+    body: JSON.stringify(message)
+  });
+
+  if (resp.status === 201) {
+    const draft = await resp.json();
+    return draft.id;
+  }
+  if (resp.status === 401) {
+    graphToken = null;
+    updateAuthUI(false);
+    throw new Error('トークンが期限切れです。再度ログインしてください。');
+  }
+  const err2 = await resp.text();
+  throw new Error(`Graph API エラー (${resp.status}): ${err2}`);
+}
+
+async function sendOneDraft(idx) {
+  const b = filteredData[idx];
+  if (!b || b.sendType === 'nomail') return;
+  if (!graphToken) { alert('先に「Outlookログイン」でログインしてください。'); return; }
+  try {
+    addLog(`📝 ${b.buyer}: 下書き保存中...`, '');
+    await sendMailDraft(b);
+    addLog(`✅ ${b.buyer}: Outlookの下書きに保存しました`, 'ok');
+  } catch(e) {
+    addLog(`❌ ${b.buyer}: ${e.message}`, 'err');
+    alert(`失敗 (${b.buyer}): ${e.message}`);
+  }
+}
+
+async function sendSelectedDraft() {
+  if (!graphToken) {
+    alert('先に「Outlookログイン」ボタンでログインしてください。');
+    return;
+  }
+  const targets = buyerData.filter(b => b.selected && b.sendType !== 'nomail');
+  if (!targets.length) { alert('送付可能なバイヤーが選択されていません。'); return; }
+
+  document.getElementById('progressWrap').style.display = 'block';
+  setProgress(0, '');
+  log('');
+
+  let ok = 0, ng = 0;
+  for (let i = 0; i < targets.length; i++) {
+    const b = targets[i];
+    setProgress(Math.round((i / targets.length) * 100), `${b.buyer} 下書き保存中... (${i+1}/${targets.length})`);
+    try {
+      await sendMailDraft(b);
+      addLog(`✅ ${b.buyer}: 下書き保存完了`, 'ok');
+      ok++;
+    } catch(e) {
+      addLog(`❌ ${b.buyer}: ${e.message}`, 'err');
+      ng++;
+    }
+    await sleep(500);
+  }
+  setProgress(100, `完了 (下書き保存): 成功 ${ok}件 / 失敗 ${ng}件`);
 }
 
 async function sendOneGraph(idx) {
@@ -1344,7 +1493,9 @@ function renderTable() {
           onclick="previewOne(${idx})">👁 確認</button>
         ${b.sendType!=='nomail'
           ? `<button class="btn btn-ok" style="font-size:.75rem;padding:5px 10px;margin-left:4px"
-              onclick="sendOneGraph(${idx})">📎 送付</button>`
+              onclick="sendOneGraph(${idx})">📎 送付</button>
+<button class="btn btn-sm btn-ghost" style="font-size:.75rem;padding:5px 10px;margin-left:4px"
+              onclick="sendOneDraft(${idx})">📝 下書き</button>`
           : ''}
       </td>
     `;
@@ -1611,7 +1762,7 @@ function generateExcel(b) {
 // ═══════════════════════════════════════════
 function buildMailto(b) {
   const ymd = todayYMD();
-  const subject = `[SendOnly-Shipping Schedule notice] ${b.buyer}_${ymd}`;
+  const subject = `[LEENEAR AutoSend] ${b.buyer} - Shipping Schedule ${ymd}`;
   const body = `Dear Sir/Madam,\r\n\r\nPlease kindly find the latest shipping schedule for "${b.buyer}"\r\n\r\nThanks,\r\nBest regards,`;
 
   const cc = [b.emailCC, 'rcp@leenearcorp.com']
@@ -1678,7 +1829,7 @@ function previewOne(idx) {
   const b = filteredData[idx];
   currentModalBuyer = b;
   const ymd = todayYMD();
-  const subject = `[SendOnly-Shipping Schedule notice] ${b.buyer}_${ymd}`;
+  const subject = `[LEENEAR AutoSend] ${b.buyer} - Shipping Schedule ${ymd}`;
   const cc = [b.emailCC, 'rcp@leenearcorp.com']
     .flatMap(s => (s||'').split(';')).filter(Boolean)
     .filter((v,i,a)=>a.indexOf(v)===i).join('、');
