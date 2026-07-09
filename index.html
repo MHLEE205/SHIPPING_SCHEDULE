@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v3.5</title>
+<title>LEENAI Shipping Schedule 送付ツール v3.6</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -103,7 +103,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v3.5</span>
+  <span class="header-ver">v3.6</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -596,7 +596,7 @@ async function fetchBookingsByContracts(contractGuids, token) {
                  + `cr49f_region_id($select=cr49f_pod)`;
     const url = `cr49f_bookings?$filter=${filter}`
               + `&$select=cr49f_bookingid,cr49f_bl_number,cr49f_booking_no,cr49f_invoice_no,`
-              + `cr49f_main_ship_name,cr49f_etd,cr49f_eta,crcf9_bl_etd,`
+              + `cr49f_main_ship_name,cr49f_etd,cr49f_eta,crcf9_bl_etd,crcf9_bl_eta,`
               + `_cr49f_sale_contract_id_value`
               + `&$expand=${expand}`;
     const rows = await d365Get(url, token);
@@ -664,7 +664,8 @@ function buildScheduleRowsFromD365(bookings, containerInfos) {
     // ④ 日付
     const blDate    = bk.crcf9_bl_etd ? bk.crcf9_bl_etd.slice(0,10).replace(/-/g,'/') : '';
     const blDateRaw = bk.crcf9_bl_etd ? new Date(bk.crcf9_bl_etd) : null;
-    const eta       = bk.cr49f_eta    ? bk.cr49f_eta.slice(0,10).replace(/-/g,'/') : '';
+    const etaRaw_   = bk.crcf9_bl_eta || bk.cr49f_eta || null;
+    const eta       = etaRaw_ ? etaRaw_.slice(0,10).replace(/-/g,'/') : '';
     const etdRaw    = bk.cr49f_etd   ? new Date(bk.cr49f_etd) : null; // fallback용
 
     // ⑤ このbookingに紐づくcontainer_info を取得
