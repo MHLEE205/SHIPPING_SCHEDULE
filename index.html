@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v3.10</title>
+<title>LEENAI Shipping Schedule 送付ツール v3.11</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -104,7 +104,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v3.10</span>
+  <span class="header-ver">v3.11</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -242,10 +242,9 @@ const D365 = {
   scope:   'https://orgde512c6f.crm7.dynamics.com/user_impersonation offline_access',
 };
 
-// SharePoint E-mailマスター 自動取得設定
-const SP_SITE_PATH = 'leenear.sharepoint.com:/sites/leenearsite1:';
-const SP_EMAIL_FILE_SEGMENTS = ['古紙', '-. AI 活用', 'Z-01 -LEENAI-SCHEDULE', 'Shipping Schedule(E-mail ADD).xlsm'];
-const SP_EMAIL_FILE_GUID = '16AA884C-F167-4142-A91D-4ADF6875DD23';  // sourcedoc GUID
+// SharePoint E-mailマスター 自動取得設定 (v3.11: D-01実績方式に変更)
+const SP_DRIVE_ID      = 'b!ZK58_9YllU-vETQD3Xz0TbOInXbVCXJHnQ2280KJBArFLeM_18EgRbSeoO-TW__U';
+const SP_EMAIL_FILE_PATH = '古紙/-. AI 活用/Z-01 -LEENAI-SCHEDULE/Shipping Schedule(E-mail ADD).xlsm';
 let autoLoadPromise = null;  // SP取得中Promise (D365完了時の待機用)
 let d365Token      = null;   // Dataverse用 access_token
 let mailMapGlobal  = {};     // E-mailマスター (loadFromD365とparseEmailMasterで共有)
@@ -898,8 +897,8 @@ async function loadFromD365() {
 }
 
 // ═══════════════════════════════════════════
-// E-mailマスター SharePoint 自動取得 (v3.10)
-// GUID方式優先 → 失敗時パス方式でフォールバック
+// E-mailマスター SharePoint 自動取得 (v3.11: D-01実績方式)
+// drives/{driveId}/root:/{encoded}:/content
 // ═══════════════════════════════════════════
 function autoLoadEmailMaster() {
   if (!graphToken) {
@@ -910,33 +909,20 @@ function autoLoadEmailMaster() {
   autoLoadPromise = (async () => {
     try {
       statusEl.textContent = '⟳ SharePointからE-mailマスター取得中...';
-
-      // ① GUID方式: sites/{site}/drive/items/{guid}/content
-      const siteBase = `https://graph.microsoft.com/v1.0/sites/${SP_SITE_PATH}`;
-      const guidUrl  = `${siteBase}/drive/items/${SP_EMAIL_FILE_GUID}/content`;
-      addLog(`📡 [SP] GUID方式で取得中...`, 'ok');
-      let res = await fetch(guidUrl, { headers: { 'Authorization': `Bearer ${graphToken}` } });
-
-      // ② GUID失敗時 → パス方式フォールバック
+      const encoded = SP_EMAIL_FILE_PATH.split('/').map(encodeURIComponent).join('/');
+      const url = `https://graph.microsoft.com/v1.0/drives/${SP_DRIVE_ID}/root:/${encoded}:/content`;
+      addLog(`📡 [SP] DriveID方式で取得中...`, 'ok');
+      const res = await fetch(url, { headers: { 'Authorization': `Bearer ${graphToken}` } });
       if (!res.ok) {
-        let d1 = ''; try { const j = await res.clone().json(); d1 = j?.error?.message||''; } catch(_) {}
-        addLog(`⚠️ [SP] GUID方式失敗 HTTP ${res.status}${d1?' / '+d1:''} → パス方式へ`, 'warn');
-        const encoded = SP_EMAIL_FILE_SEGMENTS.map(s => encodeURIComponent(s)).join('/');
-        const pathUrl = `${siteBase}/drive/root:/${encoded}:/content`;
-        res = await fetch(pathUrl, { headers: { 'Authorization': `Bearer ${graphToken}` } });
-        if (!res.ok) {
-          let d2 = ''; try { const j = await res.json(); d2 = j?.error?.message||''; } catch(_) {}
-          throw new Error(`GUID方式 + パス方式 両方失敗。最終 HTTP ${res.status}${d2?' / '+d2:''}`);
-        }
-        addLog(`✅ [SP] パス方式で取得成功`, 'ok');
-      } else {
-        addLog(`✅ [SP] GUID方式で取得成功`, 'ok');
+        let detail = '';
+        try { const j = await res.json(); detail = j?.error?.message || ''; } catch(_) {}
+        throw new Error(`HTTP ${res.status}${detail ? ' / ' + detail : ''}`);
       }
-
       const buf = await res.arrayBuffer();
       const wb  = XLSX.read(new Uint8Array(buf), { type: 'array', raw: true });
       emailFileHandle = null;
       parseEmailMaster(wb, 'Shipping Schedule(E-mail ADD).xlsm [SP自動取得]');
+      addLog(`✅ [SP] E-mailマスター取得成功`, 'ok');
     } catch(e) {
       statusEl.textContent = '⚠️ 自動取得失敗 → 手動で選択してください';
       addLog(`❌ [SP] 自動取得失敗: ${e.message}`, 'err');
