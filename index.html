@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v3.6</title>
+<title>LEENAI Shipping Schedule 送付ツール v3.7</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
 :root{--bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--surface3:#2a2f46;--border:#2e3350;--accent:#4f8ef7;--ok:#22c55e;--warn:#f59e0b;--danger:#ef4444;--text:#e2e8f0;--text2:#8892a4;--text3:#4a5568;--radius:10px;}
 [data-theme="light"]{--bg:#f4f6fb;--surface:#ffffff;--surface2:#f0f4ff;--surface3:#e8edf7;--border:#d1d5db;--text:#111827;--text2:#6b7280;--text3:#9ca3af;}
+[data-theme="leenai"]{--bg:#FAFDF7;--surface:#ffffff;--surface2:#F2F9EE;--surface3:#E8F5E0;--border:#D0E8C0;--text:#1A3A0E;--text2:#4A6A3A;--text3:#8AAA80;--accent:#2D5A1E;--accent2:#2E72C8;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Segoe UI','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;}
 .loading-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;}
@@ -103,7 +104,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v3.6</span>
+  <span class="header-ver">v3.7</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -1966,17 +1967,20 @@ function setProgress(pct, msg) {
 }
 
 // ── テーマ切替 ──────────────────────────────
-function toggleTheme() {
-  const html = document.documentElement;
-  const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  html.setAttribute('data-theme', next);
-  localStorage.setItem('leenai_theme', next);
-  updateThemeBtn(next);
-}
 function updateThemeBtn(theme) {
   const btn = document.getElementById('themeToggleBtn');
   if (!btn) return;
-  btn.textContent = theme === 'dark' ? '🌙 ダーク' : '☀️ ライト';
+  const labels = { dark: '🌙 ダーク', light: '☀️ ライト', leenai: '🌿 LEENAI' };
+  btn.textContent = labels[theme] || '🌙 ダーク';
+}
+function toggleTheme() {
+  const html = document.documentElement;
+  const current = html.getAttribute('data-theme') || 'dark';
+  const order = ['dark', 'light', 'leenai'];
+  const next = order[(order.indexOf(current) + 1) % order.length];
+  html.setAttribute('data-theme', next);
+  localStorage.setItem('leenai_theme', next);
+  updateThemeBtn(next);
 }
 // 前回テーマ復元
 (function() {
