@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v3.7</title>
+<title>LEENAI Shipping Schedule 送付ツール v3.8</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
 <style>
@@ -104,7 +104,7 @@ tbody td:first-child{text-align:center;}
 <header class="header">
   <div class="logo">LEEN<span>AI</span></div>
   <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v3.7</span>
+  <span class="header-ver">v3.8</span>
   <div class="header-right">
     <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
     <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
@@ -128,9 +128,9 @@ tbody td:first-child{text-align:center;}
 
     <!-- E-mailマスター Excelブロック -->
     <div class="folder-row" style="margin-top:6px">
-      <button class="btn btn-ghost" onclick="selectEmailFile()">📄 E-mailマスター選択</button>
+      <button class="btn btn-ghost" onclick="selectEmailFile()">📄 手動選択</button>
       <div id="emailFileStatus" style="font-size:13px;color:var(--text2)">
-        E-mailマスターExcelファイルを選択してください（E-mailシートを含む.xlsx）
+        🔄 ログイン後にSharePointから自動取得します
       </div>
     </div>
 
@@ -229,7 +229,7 @@ const FS_DB = 'leenai_shipping_schedule_v1';
 const OAUTH = {
   clientId:    'f071a165-5e9b-44bf-b6a1-baba654524db',
   tenantId:    'a56988ff-c2b8-4df8-9727-889ad4205198',
-  scopes:      'Mail.Send Mail.ReadWrite User.Read offline_access',
+  scopes:      'Mail.Send Mail.ReadWrite User.Read Files.Read offline_access',
   redirectUri: 'https://mhlee205.github.io/SHIPPING_SCHEDULE/',
 };
 
@@ -241,6 +241,10 @@ const D365 = {
   apiBase: 'https://orgde512c6f.crm7.dynamics.com/api/data/v9.0/',
   scope:   'https://orgde512c6f.crm7.dynamics.com/user_impersonation offline_access',
 };
+
+// SharePoint E-mailマスター 自動取得設定
+const SP_SITE_PATH = 'leenear.sharepoint.com:/sites/leenearsite1:';
+const SP_EMAIL_FILE_SEGMENTS = ['古紙', '-. AI 活用', 'Z-01 -LEENAI-SCHEDULE', 'Shipping Schedule(E-mail ADD).xlsm'];
 let d365Token      = null;   // Dataverse用 access_token
 let mailMapGlobal  = {};     // E-mailマスター (loadFromD365とparseEmailMasterで共有)
 let emailFileHandle = null;  // E-mailマスター Excelファイルハンドル
@@ -486,7 +490,8 @@ async function checkTokenExpiry() {
 async function tryAutoLogin() {
   const ok = await silentRefresh();
   if (ok) {
-    await checkTokenExpiry(); // 로그인 성공 후 만료 체크
+    await checkTokenExpiry();
+    autoLoadEmailMaster();
   }
   // 실패해도 그냥 로그인 버튼 표시 (에러 없이)
 }
@@ -499,6 +504,7 @@ function updateAuthUI(loggedIn) {
     st.style.color  = '#22c55e';
     btn.textContent = '🔓 ログアウト';
     document.getElementById('loginGate').style.display = 'none';
+    autoLoadEmailMaster();
   } else {
     st.textContent  = '⚪ 未ログイン';
     st.style.color  = '';
@@ -879,6 +885,27 @@ async function loadFromD365() {
 }
 
 // ═══════════════════════════════════════════
+// E-mailマスター SharePoint 自動取得 (v3.8)
+// ═══════════════════════════════════════════
+async function autoLoadEmailMaster() {
+  if (!graphToken) return;
+  const statusEl = document.getElementById('emailFileStatus');
+  try {
+    statusEl.textContent = '⟳ SharePointから自動取得中...';
+    const encoded = SP_EMAIL_FILE_SEGMENTS.map(s => encodeURIComponent(s)).join('/');
+    const url = `https://graph.microsoft.com/v1.0/sites/${SP_SITE_PATH}/drive/root:/${encoded}:/content`;
+    const res = await fetch(url, { headers: { 'Authorization': `Bearer ${graphToken}` } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const buf = await res.arrayBuffer();
+    const wb = XLSX.read(new Uint8Array(buf), { type: 'array', raw: true });
+    emailFileHandle = null;
+    parseEmailMaster(wb, 'Shipping Schedule(E-mail ADD).xlsm [SP自動取得]');
+  } catch(e) {
+    statusEl.textContent = '⚠️ 自動取得失敗 → 手動で選択してください';
+    console.warn('autoLoadEmailMaster:', e);
+  }
+}
+
 // E-mailマスター Excel 選択・読み込み (v2.11)
 // ═══════════════════════════════════════════
 async function selectEmailFile() {
@@ -1372,7 +1399,7 @@ async function loadFromFile() {
 // ═══════════════════════════════════════════
 // E-mailマスター Excel 解析 (v2.11 — E-mailシートのみ)
 // ═══════════════════════════════════════════
-function parseEmailMaster(wb) {
+function parseEmailMaster(wb, fileNameOverride = null) {
   const emailSheet = wb.Sheets['E-mail'];
   if (!emailSheet) { showError('「E-mail」シートが見つかりません。'); return; }
 
@@ -1395,7 +1422,7 @@ function parseEmailMaster(wb) {
   mailMapGlobal = mailMap;
   addLog(`📧 E-mailマスター: ${emailRows.length} 件`, 'ok');
   document.getElementById('emailFileStatus').textContent =
-    `📄 ${emailFileHandle ? emailFileHandle.name : 'E-mailマスター'}  ✅ 読み込み済み (${emailRows.length}件)`;
+    `📄 ${fileNameOverride || (emailFileHandle ? emailFileHandle.name : 'E-mailマスター')}  ✅ 読み込み済み (${emailRows.length}件)`;
 
   // D365データが取得済みの場合は即 buildBuyerData
   if (window._pendingScheduleRows && window._pendingScheduleRows.length > 0) {
