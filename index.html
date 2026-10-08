@@ -1,45 +1,34 @@
 <!DOCTYPE html>
-<html lang="ja" data-theme="leenai">
+<html lang="ja" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LEENAI Shipping Schedule 送付ツール v3.11</title>
+<link id="leenaiFavicon" rel="icon">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
-<!-- MSAL 불要: 純粋OAuth2 PKCE フローで実装 -->
+<link rel="stylesheet" href="https://mhlee205.github.io/LEENAI_COMMON/v1/leenai-common.css">
+<script src="https://mhlee205.github.io/LEENAI_COMMON/v1/leenai-common.js"></script>
+<script>if(!window.LEENAI){document.addEventListener('DOMContentLoaded',function(){document.body.innerHTML='<div style="padding:40px;font-family:sans-serif">共通ファイルの読み込みに失敗しました。ページを再読み込みしてください。</div>';});}</script>
 <style>
-:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--surface3:#2a2f46;--border:#2e3350;--accent:#4f8ef7;--ok:#22c55e;--warn:#f59e0b;--danger:#ef4444;--text:#e2e8f0;--text2:#8892a4;--text3:#4a5568;--radius:10px;}
-[data-theme="light"]{--bg:#FAF9F8;--surface:#FFFFFF;--surface2:#F3F2F1;--surface3:#EDEBE9;--border:#E1DFDD;--text:#201F1E;--text2:#605E5C;--text3:#A19F9D;--accent:#0F6CBD;}
-[data-theme="leenai"]{--bg:#E9EEE8;--surface:#F4F5F7;--surface2:#E1E8E0;--surface3:#D5DFD3;--border:#B9C7B7;--text:#1F2A22;--text2:#4F5E52;--text3:#6D7B71;--accent:#2F6B45;--accent2:#3F6FA8;}
-[data-theme="focus"]{--bg:#E7EAF0;--surface:#F4F5F7;--surface2:#DDE2EA;--surface3:#CFD6E2;--border:#AEB8C8;--text:#202733;--text2:#515C6C;--text3:#697587;--accent:#315F9E;--accent2:#2F7D6A;}
+/* ── B-02 固有 CSS ── */
+:root{--radius:10px;}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Segoe UI','Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;}
-.loading-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;}
-.loading-overlay.show{display:flex;}
-.loading-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 40px;text-align:center;min-width:200px;}
-.loading-box .spinner{width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .6s linear infinite;margin:0 auto;}
-.loading-msg{margin-top:10px;font-size:12px;font-weight:600;color:var(--text2);}
-@keyframes spin{to{transform:rotate(360deg);}}
-.header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:200;height:50px;}
-.logo{font-size:17px;font-weight:800;letter-spacing:1px;}.logo span{color:var(--accent);}
-.header-subtitle{font-size:12px;color:var(--text2);font-weight:500;}
-.header-ver{font-size:11px;color:#fff;background:var(--accent);padding:2px 9px;border-radius:12px;font-weight:700;}
-.header-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+body{min-height:100vh;font-size:13px;}
 main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;display:flex;flex-direction:column;gap:14px;}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;}
+.card{background:var(--read);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;}
 .card-title{font-weight:700;font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
-.step-num{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;}
+.step-num{width:22px;height:22px;border-radius:50%;background:var(--accent-btn);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;}
 .folder-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 #fileStatus{font-size:12px;color:var(--text2);font-family:monospace;background:var(--surface2);padding:8px 14px;border-radius:8px;border:1px solid var(--border);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 #fileStatus.ok{color:var(--ok);border-color:rgba(34,197,94,.4);background:rgba(34,197,94,.05);}
 #errorMsg{color:var(--danger);font-size:12px;margin-top:8px;display:none;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:6px;padding:8px 12px;}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all .15s;white-space:nowrap;}
 .btn:disabled{opacity:.45;cursor:not-allowed;}
-.btn-primary{background:var(--accent);color:#fff;}.btn-primary:hover:not(:disabled){filter:brightness(1.1);}
+.btn-primary{background:var(--accent-btn);color:#fff;}.btn-primary:hover:not(:disabled){filter:brightness(1.08);}
 .btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border);}.btn-ghost:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
 .btn-ok{background:var(--ok);color:#fff;}.btn-ok:hover:not(:disabled){filter:brightness(1.1);}
 .btn-danger{background:var(--danger);color:#fff;}.btn-danger:hover:not(:disabled){filter:brightness(1.1);}
 #summaryBar{display:none;gap:10px;flex-wrap:wrap;}
-.stat-pill{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;}
+.stat-pill{background:var(--read);border:1px solid var(--border);border-radius:8px;padding:10px 16px;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;}
 .stat-pill strong{color:var(--text);font-size:15px;font-weight:700;}
 #controls{display:none;align-items:center;gap:8px;flex-wrap:wrap;}
 #searchBox{flex:1;min-width:180px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:inherit;font-size:13px;outline:none;transition:border .15s;}
@@ -47,7 +36,7 @@ main{max-width:1100px;margin:0 auto;padding:20px 16px 80px;display:flex;flex-dir
 #searchBox::placeholder{color:var(--text3);}
 #tableWrap{display:none;overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);}
 table{width:100%;border-collapse:collapse;font-size:12px;}
-thead th{background:var(--surface3);color:var(--text2);padding:9px 12px;text-align:left;font-weight:600;font-size:11px;letter-spacing:.05em;white-space:nowrap;position:sticky;top:0;}
+thead th{background:var(--frame);color:var(--text);padding:9px 12px;text-align:left;font-weight:700;font-size:11px;letter-spacing:.05em;white-space:nowrap;position:sticky;top:0;}
 thead th input[type=checkbox]{width:14px;height:14px;cursor:pointer;}
 tbody tr{transition:background .1s;}
 tbody tr:nth-child(even){background:var(--surface2);}
@@ -60,7 +49,7 @@ tbody td:first-child{text-align:center;}
 .badge-direct{background:rgba(245,158,11,.15);color:var(--warn);}
 .badge-nomail{background:rgba(239,68,68,.15);color:var(--danger);}
 .email-cell{font-family:monospace;font-size:11px;color:var(--text2);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-#sendPanel{display:none;position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--border);padding:12px 24px;align-items:center;gap:12px;z-index:99;box-shadow:0 -4px 20px rgba(0,0,0,.3);}
+#sendPanel{display:none;position:sticky;bottom:0;background:var(--frame);border-top:1px solid var(--border);padding:12px 24px;align-items:center;gap:12px;z-index:99;box-shadow:0 -4px 20px rgba(0,0,0,.3);}
 #sendPanel .sel-info{color:var(--text2);font-size:13px;flex:1;}
 #sendPanel .sel-info strong{color:var(--accent);font-size:15px;}
 #progressWrap{display:none;margin-top:12px;}
@@ -70,7 +59,7 @@ tbody td:first-child{text-align:center;}
 .log-ok{color:var(--ok);}.log-warn{color:var(--warn);}.log-err{color:var(--danger);}
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center;}
 .modal-overlay.open{display:flex;}
-.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:680px;max-width:96vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+.modal{background:var(--read);border:1px solid var(--border);border-radius:12px;width:680px;max-width:96vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.5);}
 .modal-header{background:var(--surface2);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;}
 .modal-header h3{font-size:14px;font-weight:700;}
 .modal-close{background:none;border:none;color:var(--text2);font-size:16px;cursor:pointer;padding:0 4px;line-height:1;}
@@ -80,1987 +69,864 @@ tbody td:first-child{text-align:center;}
 .modal-field label{display:block;font-size:10px;font-weight:700;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;}
 .modal-field .val{font-size:12px;color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-family:monospace;word-break:break-all;}
 .modal-footer{padding:12px 20px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;}
+@media print{.ln-header,.ln-footer,.card{display:none!important;}}
 </style>
 </head>
 <body>
 
-<!-- ── Login Gate ── -->
-<div id="loginGate" style="display:flex;position:fixed;inset:0;background:#0f1117;z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:16px;">
-  <div style="font-size:40px;font-weight:800;letter-spacing:3px;color:#e2e8f0;">LEEN<span style="color:#4f8ef7">AI</span></div>
-  <div style="font-size:11px;color:var(--accent);font-weight:700;letter-spacing:1px;">SYS-B-02</div>
-  <div style="font-size:16px;color:var(--text);font-weight:700;">Shipping Schedule 送付ツール</div>
-  <div style="font-size:12px;color:var(--text2);">v3.11</div>
-  <div style="width:48px;height:1px;background:#2e3350;margin:12px 0;"></div>
-  <div style="font-size:12px;color:#4a5568;text-align:center;line-height:1.8;">このツールを使用するには<br>Outlookアカウントでのログインが必要です</div>
-  <button id="gateLoginBtn" onclick="gateLogin()" style="margin-top:8px;background:#4f8ef7;color:#fff;border:none;padding:11px 32px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:'Segoe UI',sans-serif;display:inline-flex;align-items:center;gap:8px;">🔑 Outlookでログイン</button>
-  <div id="gateStatus" style="font-size:11px;color:#8892a4;height:18px;"></div>
-</div>
+<div id="app" style="display:none">
+  <!-- ln-header は LEENAI が挿入 -->
+  <main>
 
-<!-- ── Loading Overlay ── -->
-<div class="loading-overlay" id="loadingOverlay">
-  <div class="loading-box">
-    <div class="spinner"></div>
-    <div class="loading-msg" id="loadingMsg">データ取得中...</div>
-  </div>
-</div>
-
-<header class="header">
-  <div class="logo">LEEN<span>AI</span></div>
-  <span class="header-subtitle">Shipping Schedule 送付ツール</span>
-  <span class="header-ver">v3.11</span>
-  <div class="header-right">
-    <span id="authStatus" style="font-size:12px;color:var(--text2);font-family:monospace;">⚪ 未ログイン</span>
-    <button class="btn btn-ghost" id="authBtn" onclick="toggleAuth()" style="font-size:11px;padding:5px 12px;">🔑 Outlookログイン</button>
-    <button id="themeToggleBtn" onclick="toggleTheme()" class="btn btn-ghost" style="font-size:11px;padding:5px 12px;">🌙 ダーク</button>
-  </div>
-</header>
-
-<main>
-
-  <!-- STEP 1: データ読み込み (v2.11: D365 + E-mailマスター) -->
-  <div class="card">
-    <div class="card-title"><span class="step-num">1</span> データ読み込み</div>
-
-    <!-- D365 ロードブロック -->
-    <div class="folder-row" style="margin-bottom:10px">
-      <button class="btn btn-primary" id="btnD365Load" onclick="loadFromD365()">🌐 COMPASSからデータ取得</button>
-      <div id="d365Status" style="font-size:13px;color:var(--text2)">
-        COMPASSに接続してスケジュールデータを取得します（ログイン後に使用可能）
+    <!-- STEP 1: データ読み込み -->
+    <div class="card">
+      <div class="card-title"><span class="step-num">1</span> データ読み込み</div>
+      <div class="folder-row" style="margin-bottom:10px">
+        <button class="btn btn-primary" id="btnD365Load" onclick="loadFromD365()">🌐 COMPASSからデータ取得</button>
+        <div id="d365Status" style="font-size:13px;color:var(--text2)">
+          COMPASSに接続してスケジュールデータを取得します
+        </div>
+      </div>
+      <div class="folder-row" style="margin-top:6px">
+        <button class="btn btn-ghost" onclick="selectEmailFile()">📄 手動選択</button>
+        <div id="emailFileStatus" style="font-size:13px;color:var(--text2)">
+          🔄 ログイン後にSharePointから自動取得します
+        </div>
+      </div>
+      <div id="errorMsg"></div>
+      <div id="progressWrap">
+        <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar" style="width:0%"></div></div>
+        <div id="progressLog"></div>
       </div>
     </div>
 
-    <!-- E-mailマスター Excelブロック -->
-    <div class="folder-row" style="margin-top:6px">
-      <button class="btn btn-ghost" onclick="selectEmailFile()">📄 手動選択</button>
-      <div id="emailFileStatus" style="font-size:13px;color:var(--text2)">
-        🔄 ログイン後にSharePointから自動取得します
+    <!-- STEP 2: バイヤー一覧 -->
+    <div id="summaryBar" style="display:flex">
+      <div class="stat-pill">バイヤー数 <strong id="statBuyers">0</strong></div>
+      <div class="stat-pill">全データ <strong id="statRows">0</strong> 行</div>
+      <div class="stat-pill">送付先あり <strong id="statMailable">0</strong></div>
+      <div class="stat-pill">送付先なし <strong id="statNomail">0</strong></div>
+    </div>
+
+    <div id="controls" style="display:flex">
+      <input id="searchBox" type="text" placeholder="🔍 バイヤー名で絞り込み..." oninput="filterTable()">
+      <button class="btn btn-ghost" onclick="selectAll(true)">✅ 全選択</button>
+      <button class="btn btn-ghost" onclick="selectAll(false)">□ 全解除</button>
+      <button class="btn btn-ghost" onclick="selectMailable()">📧 送付可能のみ選択</button>
+    </div>
+
+    <div id="tableWrap">
+      <table id="buyerTable">
+        <thead>
+          <tr>
+            <th><input type="checkbox" id="chkAll" onchange="toggleAll(this)"></th>
+            <th>バイヤー</th>
+            <th>Agent</th>
+            <th>送付タイプ</th>
+            <th>TO (送付先)</th>
+            <th>CC</th>
+            <th>データ数</th>
+            <th>ETD 範囲</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="buyerTbody"></tbody>
+      </table>
+    </div>
+
+  </main>
+
+  <!-- 送信パネル -->
+  <div id="sendPanel" style="display:flex">
+    <div class="sel-info">選択中: <strong id="selCount">0</strong> 件</div>
+    <button class="btn btn-ghost" onclick="previewSelected()">👁 内容確認</button>
+    <button class="btn btn-ok" onclick="sendSelectedGraph()" id="btnGraphSend">📎 選択分を一括送付</button>
+    <button class="btn btn-ghost" onclick="sendSelectedDraft()" id="btnDraftSend">📝 選択分を下書き保存</button>
+    <button class="btn btn-ghost" style="font-size:11px" onclick="sendSelected()">mailto方式</button>
+  </div>
+
+  <!-- メールプレビュー Modal -->
+  <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle">メール確認</h3>
+        <button class="modal-close" onclick="closeModalDirect()">✕</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModalDirect()">閉じる</button>
+        <button class="btn btn-ghost" style="font-size:11px" id="modalMailtoBtn">📤 mailto方式</button>
+        <button class="btn btn-ok" id="modalSendBtn">📎 送付</button>
       </div>
     </div>
-
-    <div id="errorMsg"></div>
-    <div id="progressWrap">
-      <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar" style="width:0%"></div></div>
-      <div id="progressLog"></div>
-    </div>
   </div>
-
-  <!-- STEP 2: バイヤー一覧 -->
-  <div id="summaryBar" style="display:flex">
-    <div class="stat-pill">バイヤー数 <strong id="statBuyers">0</strong></div>
-    <div class="stat-pill">全データ <strong id="statRows">0</strong> 行</div>
-    <div class="stat-pill">送付先あり <strong id="statMailable">0</strong></div>
-    <div class="stat-pill">送付先なし <strong id="statNomail">0</strong></div>
-  </div>
-
-  <div id="controls" style="display:flex">
-    <input id="searchBox" type="text" placeholder="🔍 バイヤー名で絞り込み..." oninput="filterTable()">
-    <button class="btn btn-ghost" onclick="selectAll(true)">✅ 全選択</button>
-    <button class="btn btn-ghost" onclick="selectAll(false)">□ 全解除</button>
-    <button class="btn btn-ghost" onclick="selectMailable()">📧 送付可能のみ選択</button>
-  </div>
-
-  <div id="tableWrap">
-    <table id="buyerTable">
-      <thead>
-        <tr>
-          <th><input type="checkbox" id="chkAll" onchange="toggleAll(this)"></th>
-          <th>バイヤー</th>
-          <th>Agent</th>
-          <th>送付タイプ</th>
-          <th>TO (送付先)</th>
-          <th>CC</th>
-          <th>データ数</th>
-          <th>ETD 範囲</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody id="buyerTbody"></tbody>
-    </table>
-  </div>
-
-</main>
-
-<!-- 送信パネル (sticky bottom) -->
-<div id="sendPanel" style="display:flex">
-  <div class="sel-info">選択中: <strong id="selCount">0</strong> 件</div>
-  <button class="btn btn-ghost" onclick="previewSelected()">👁 内容確認</button>
-  <button class="btn btn-ok" onclick="sendSelectedGraph()" id="btnGraphSend">📎 選択分を一括送付</button>
-  <button class="btn btn-ghost" onclick="sendSelectedDraft()" id="btnDraftSend">📝 選択分を下書き保存</button>
-  <button class="btn btn-ghost" style="font-size:11px" onclick="sendSelected()">mailto方式</button>
-</div>
-
-<!-- メールプレビュー Modal -->
-<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 id="modalTitle">メール確認</h3>
-      <button class="modal-close" onclick="closeModalDirect()">✕</button>
-    </div>
-    <div class="modal-body" id="modalBody"></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModalDirect()">閉じる</button>
-      <button class="btn btn-ghost" style="font-size:11px" id="modalMailtoBtn">📤 mailto方式</button>
-      <button class="btn btn-ok" id="modalSendBtn">📎 送付</button>
-    </div>
-  </div>
-</div>
+  <!-- ln-footer は LEENAI が挿入 -->
+</div><!-- /app -->
 
 <script>
-// ── ポップアップ側: code を親ウィンドウに送信して自分を閉じる ──
-(function() {
-  const params = new URLSearchParams(window.location.search);
-  const code  = params.get('code');
-  const state = params.get('state');
-  const error = params.get('error');
-  if (code || error) {
-    // 親ウィンドウに postMessage で送信
-    if (window.opener) {
-      window.opener.postMessage({ type: 'oauth_callback', code, state, error,
-        error_description: params.get('error_description') }, '*');
-      window.close();
-    }
-    // 親がいない場合はそのまま (念のため)
-    return;
-  }
-})();
-const FS_DB = 'leenai_shipping_schedule_v1';
-// Shipping_Schedule で始まる .xlsm を自動検出
+var FS_DB = 'leenai_shipping_schedule_v1';
 
-// ═══════════════════════════════════════════
-// OAuth2 PKCE 認証 (外部ライブラリ不要)
-// ═══════════════════════════════════════════
-const OAUTH = {
-  clientId:    'f071a165-5e9b-44bf-b6a1-baba654524db',
-  tenantId:    'a56988ff-c2b8-4df8-9727-889ad4205198',
-  scopes:      'Mail.Send Mail.ReadWrite User.Read Files.Read offline_access',
-  redirectUri: 'https://mhlee205.github.io/SHIPPING_SCHEDULE/',
-};
-
-// ═══════════════════════════════════════════
-// D365 / COMPASS 接続定数  (v2.11追加)
-// ═══════════════════════════════════════════
-const D365 = {
+/* ── D365 / COMPASS ── */
+var D365 = {
   orgUrl:  'https://orgde512c6f.crm7.dynamics.com',
   apiBase: 'https://orgde512c6f.crm7.dynamics.com/api/data/v9.0/',
   scope:   'https://orgde512c6f.crm7.dynamics.com/user_impersonation offline_access',
 };
 
-// SharePoint E-mailマスター 自動取得設定 (v3.11: D-01実績方式に変更)
-const SP_DRIVE_ID      = 'b!ZK58_9YllU-vETQD3Xz0TbOInXbVCXJHnQ2280KJBArFLeM_18EgRbSeoO-TW__U';
-const SP_EMAIL_FILE_PATH = '古紙/-. AI 活用/Z-01 -LEENAI-SCHEDULE/Shipping Schedule(E-mail ADD).xlsm';
-let autoLoadPromise = null;  // SP取得中Promise (D365完了時の待機用)
-let d365Token      = null;   // Dataverse用 access_token
-let mailMapGlobal  = {};     // E-mailマスター (loadFromD365とparseEmailMasterで共有)
-let emailFileHandle = null;  // E-mailマスター Excelファイルハンドル
+/* ── SharePoint ── */
+var SP_DRIVE_ID        = 'b!ZK58_9YllU-vETQD3Xz0TbOInXbVCXJHnQ2280KJBArFLeM_18EgRbSeoO-TW__U';
+var SP_EMAIL_FILE_PATH = '古紙/-. AI 活用/Z-01 -LEENAI-SCHEDULE/Shipping Schedule(E-mail ADD).xlsm';
+var autoLoadPromise = null;
+var mailMapGlobal   = {};
+var emailFileHandle = null;
 
-let graphToken   = null;
-let loggedInUser = null;
+/* ── 状態 ── */
+var fileHandle        = null;
+var buyerData         = [];
+var filteredData      = [];
+var currentModalBuyer = null;
 
-function b64url(buf) {
-  return btoa(String.fromCharCode(...new Uint8Array(buf)))
-    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');
-}
-async function generatePKCE() {
-  const verifier  = b64url(crypto.getRandomValues(new Uint8Array(32)));
-  const challenge = b64url(await crypto.subtle.digest('SHA-256',
-    new TextEncoder().encode(verifier)));
-  return { verifier, challenge };
-}
-
-async function gateLogin() {
-  const btn = document.getElementById('gateLoginBtn');
-  btn.disabled = true;
-  document.getElementById('gateStatus').textContent = 'ログイン中...';
-  try {
-    await startOAuthFlow();
-  } catch(e) {
-    btn.disabled = false;
-    document.getElementById('gateStatus').textContent = e.message !== 'CANCELLED' ? 'エラー: ' + e.message : '';
-  }
-}
-
-async function toggleAuth() {
-  if (graphToken) {
-    graphToken = null; loggedInUser = null;
-    await dbSet('refreshToken', null);
-    updateAuthUI(false);
-    return;
-  }
-  document.getElementById('authBtn').textContent = '⏳ ログイン中...';
-  document.getElementById('authBtn').disabled = true;
-  try {
-    await startOAuthFlow();
-  } catch(e) {
-    document.getElementById('authBtn').textContent = '🔑 Outlookログイン';
-    document.getElementById('authBtn').disabled = false;
-    if (e.message !== 'CANCELLED') alert('ログインエラー:\n' + e.message);
-  }
-}
-
-async function startOAuthFlow() {
-  const { verifier, challenge } = await generatePKCE();
-  const state = b64url(crypto.getRandomValues(new Uint8Array(16)));
-  sessionStorage.setItem('pkce_verifier', verifier);
-  sessionStorage.setItem('oauth_state',   state);
-
-  const authUrl = `https://login.microsoftonline.com/${OAUTH.tenantId}/oauth2/v2.0/authorize`
-    + `?client_id=${OAUTH.clientId}`
-    + `&response_type=code`
-    + `&redirect_uri=${encodeURIComponent(OAUTH.redirectUri)}`
-    + `&scope=${encodeURIComponent(OAUTH.scopes)}`
-    + `&state=${state}`
-    + `&code_challenge=${challenge}`
-    + `&code_challenge_method=S256`
-    + `&response_mode=query`
-    + `&prompt=select_account`;
-
-  const W = 520, H = 640;
-  const L = Math.round(screen.width/2 - W/2);
-  const T = Math.round(screen.height/2 - H/2);
-  const popup = window.open(authUrl, 'mslogin',
-    `width=${W},height=${H},left=${L},top=${T},toolbar=no,menubar=no,scrollbars=yes`);
-
-  if (!popup) throw new Error('ポップアップがブロックされました。\n\n【解除方法】\nアドレスバー右側のポップアップアイコンをクリック\n→「https://mhlee205.github.io のポップアップを常に許可する」を選択\n→ もう一度ログインボタンをクリック');
-
-  await new Promise((resolve, reject) => {
-    const MAX = 5 * 60 * 1000;
-    const t0  = Date.now();
-    let handled = false;
-
-    // postMessage でコールバックを受け取る
-    function onMessage(event) {
-      if (handled) return;
-      if (!event.data || event.data.type !== 'oauth_callback') return;
-      handled = true;
-      window.removeEventListener('message', onMessage);
-      clearInterval(closedTimer);
-      const { code, state, error, error_description } = event.data;
-      if (error) { reject(new Error(error_description || error)); return; }
-      if (!code) { reject(new Error('認証コードが取得できませんでした。')); return; }
-      if (state !== sessionStorage.getItem('oauth_state')) {
-        reject(new Error('State不一致エラー。')); return;
+/* ═══════════════════════════════════════════
+   LEENAI 初期化
+═══════════════════════════════════════════ */
+function startTool(){
+  /* ファイルハンドル復元 */
+  (async function(){
+    try{
+      var eh=await dbGet('emailFile');
+      if(eh){
+        var perm=await eh.queryPermission({mode:'read'});
+        if(perm==='granted'){emailFileHandle=eh;await loadEmailMaster();}
+        else{emailFileHandle=eh;document.getElementById('emailFileStatus').textContent='📄 '+eh.name+'  （権限確認中）';}
       }
-      exchangeCodeForToken(code).then(resolve).catch(reject);
-    }
-    window.addEventListener('message', onMessage);
+    }catch(e){}
+  })();
+  autoLoadEmailMaster();
+}
 
-    // ポップアップが閉じられた場合の監視
-    const closedTimer = setInterval(() => {
-      if (handled) { clearInterval(closedTimer); return; }
-      if (Date.now() - t0 > MAX) {
-        clearInterval(closedTimer);
-        window.removeEventListener('message', onMessage);
-        try { popup.close(); } catch(e) {}
-        reject(new Error('タイムアウトしました。'));
+LEENAI.init({
+  sys:         'B-02',
+  name:        '出荷スケジュール 送付ツール',
+  version:     '4.0',
+  date:        '2026-10-08',
+  desc:        'COMPASSデータとE-mailマスターから出荷スケジュールを一括送付します',
+  onReady:     startTool,
+  redirectUri: 'https://mhlee205.github.io/SHIPPING_SCHEDULE/',
+});
+
+/* ── ローディング (共通に委譲) ── */
+function showLoading(msg){ LEENAI.loading.show(msg||'データ取得中...'); }
+function hideLoading(){ LEENAI.loading.hide(); }
+
+/* ═══════════════════════════════════════════
+   IndexedDB
+═══════════════════════════════════════════ */
+async function openDb(){
+  return new Promise(function(res,rej){
+    var r=indexedDB.open(FS_DB,1);
+    r.onupgradeneeded=function(e){e.target.result.createObjectStore('handles');};
+    r.onsuccess=function(e){res(e.target.result);};
+    r.onerror=function(e){rej(e.target.error);};
+  });
+}
+async function dbGet(key){
+  var db=await openDb();
+  return new Promise(function(res,rej){
+    var r=db.transaction('handles','readonly').objectStore('handles').get(key);
+    r.onsuccess=function(e){res(e.target.result);};
+    r.onerror=function(e){rej(e.target.error);};
+  });
+}
+async function dbSet(key,val){
+  var db=await openDb();
+  return new Promise(function(res,rej){
+    var r=db.transaction('handles','readwrite').objectStore('handles').put(val,key);
+    r.onsuccess=function(){res();};
+    r.onerror=function(e){rej(e.target.error);};
+  });
+}
+
+/* ═══════════════════════════════════════════
+   E-mailマスター SharePoint 自動取得
+═══════════════════════════════════════════ */
+function autoLoadEmailMaster(){
+  var statusEl=document.getElementById('emailFileStatus');
+  autoLoadPromise=(async function(){
+    try{
+      statusEl.textContent='⟳ SharePointからE-mailマスター取得中...';
+      var grTok=await LEENAI.auth.token('graph');
+      if(!grTok){
+        statusEl.textContent='⚠️ 自動取得失敗（Graph接続なし） → 手動で選択してください';
+        addLog('⚠️ [SP] Graph接続なし → スキップ','warn');
         return;
       }
-      try {
-        if (popup.closed) {
-          clearInterval(closedTimer);
-          window.removeEventListener('message', onMessage);
-          if (!handled) reject(new Error('CANCELLED'));
-        }
-      } catch(e) {}
-    }, 500);
-  });
-}
-
-async function exchangeCodeForToken(code) {
-  const body = new URLSearchParams({
-    client_id:     OAUTH.clientId,
-    grant_type:    'authorization_code',
-    code,
-    redirect_uri:  OAUTH.redirectUri,
-    code_verifier: sessionStorage.getItem('pkce_verifier'),
-    scope:         OAUTH.scopes,
-  });
-  const resp = await fetch(
-    `https://login.microsoftonline.com/${OAUTH.tenantId}/oauth2/v2.0/token`,
-    { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body }
-  );
-  const data = await resp.json();
-  if (!resp.ok) throw new Error(data.error_description || data.error || 'Token取得失敗');
-  graphToken = data.access_token;
-  if (data.refresh_token) {
-    await dbSet('refreshToken', data.refresh_token);
-    await dbSet('tokenSavedAt', Date.now()); // 로그인 날짜 기록
-  }
-  // ユーザー情報
-  const me = await (await fetch('https://graph.microsoft.com/v1.0/me',
-    { headers:{ 'Authorization': `Bearer ${graphToken}` } })).json();
-  loggedInUser = me.mail || me.userPrincipalName || 'ログイン済み';
-  updateAuthUI(true);
-}
-
-// ── Refresh Token으로 자동 재인증 ──────────────────────
-async function silentRefresh() {
-  const storedRefresh = await dbGet('refreshToken');
-  if (!storedRefresh) return false;
-
-  const body = new URLSearchParams({
-    client_id:     OAUTH.clientId,
-    grant_type:    'refresh_token',
-    refresh_token: storedRefresh,
-    scope:         OAUTH.scopes,
-  });
-
-  const resp = await fetch(
-    `https://login.microsoftonline.com/${OAUTH.tenantId}/oauth2/v2.0/token`,
-    { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body }
-  );
-  const data = await resp.json();
-
-  if (!resp.ok) {
-    // Refresh Token 만료 → 클리어
-    await dbSet('refreshToken', null);
-    await dbSet('tokenSavedAt', null);
-    return false;
-  }
-
-  graphToken = data.access_token;
-  if (data.refresh_token) {
-    await dbSet('refreshToken', data.refresh_token);
-    await dbSet('tokenSavedAt', Date.now()); // 갱신 날짜 기록
-  }
-
-  const me = await (await fetch('https://graph.microsoft.com/v1.0/me',
-    { headers: { 'Authorization': `Bearer ${graphToken}` } })).json();
-  loggedInUser = me.mail || me.userPrincipalName || 'ログイン済み';
-  updateAuthUI(true);
-  return true;
-}
-
-// ── 토큰 만료 10일 전 경고 메일 발송 ─────────────────────
-async function checkTokenExpiry() {
-  const savedAt = await dbGet('tokenSavedAt');
-  if (!savedAt || !graphToken) return;
-
-  const daysPassed = (Date.now() - savedAt) / (1000 * 60 * 60 * 24);
-  const daysLeft   = 80 - daysPassed; // Refresh Token은 90일, 80일 지나면 경고
-
-  if (daysLeft > 10) return; // 아직 여유 있음
-
-  // 이미 경고 발송했으면 스킵 (오늘 날짜 체크)
-  const lastWarn = await dbGet('lastWarnDate');
-  const today    = new Date().toDateString();
-  if (lastWarn === today) return;
-
-  // 경고 메일 발송
-  const daysLeftRounded = Math.max(0, Math.floor(daysLeft));
-  const subject = `[LEENAI 警告] Shipping Schedule ツール 再ログイン必要 (残り${daysLeftRounded}日)`;
-  const body    = [
-    `LEENAI Shipping Schedule 送付ツールの認証トークンの有効期限が近づいています。`,
-    ``,
-    `残り日数: 約${daysLeftRounded}日`,
-    ``,
-    `【対応方法】`,
-    `1. https://mhlee205.github.io/SHIPPING_SCHEDULE/ を開く`,
-    `2. 「🔑 Outlookログイン」ボタンをクリック`,
-    `3. rpa@leenearcorp.com でログイン`,
-    ``,
-    `ログイン後、次の90日間は再ログイン不要になります。`,
-    ``,
-    `─────────────────────────────`,
-    `✦ Powered by LEENAI Automation System`,
-  ].join('\r\n');
-
-  try {
-    await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${graphToken}`,
-        'Content-Type':  'application/json',
-      },
-      body: JSON.stringify({
-        message: {
-          subject,
-          body:         { contentType: 'Text', content: body },
-          toRecipients: [
-            { emailAddress: { address: 'mh_lee@leenearcorp.com' } },
-            { emailAddress: { address: 'rpa@leenearcorp.com' } },
-          ],
-        },
-        saveToSentItems: false,
-      }),
-    });
-    await dbSet('lastWarnDate', today);
-    console.log('[LEENAI] 토큰 만료 경고 메일 발송 완료');
-  } catch(e) {
-    console.warn('[LEENAI] 경고 메일 발송 실패:', e.message);
-  }
-}
-
-// ── 페이지 로드 시 자동 로그인 시도 ──────────────────────
-async function tryAutoLogin() {
-  const ok = await silentRefresh();
-  if (ok) {
-    await checkTokenExpiry();
-    autoLoadEmailMaster();
-  }
-  // 실패해도 그냥 로그인 버튼 표시 (에러 없이)
-}
-
-function updateAuthUI(loggedIn) {
-  const st  = document.getElementById('authStatus');
-  const btn = document.getElementById('authBtn');
-  if (loggedIn) {
-    st.textContent  = `🟢 ${loggedInUser}`;
-    st.style.color  = '#22c55e';
-    btn.textContent = '🔓 ログアウト';
-    document.getElementById('loginGate').style.display = 'none';
-    autoLoadEmailMaster();
-  } else {
-    st.textContent  = '⚪ 未ログイン';
-    st.style.color  = '';
-    btn.textContent = '🔑 Outlookログイン';
-  }
-}
-
-
-
-// ═══════════════════════════════════════════
-// D365 トークン取得 (v2.11追加)
-// refresh_token → Dataverse scope access_token
-// ═══════════════════════════════════════════
-async function getD365Token() {
-  const rt = await dbGet('refreshToken');
-  if (!rt) throw new Error('先にOutlookログインを行ってください。refresh_tokenが取得できていません。');
-
-  const body = new URLSearchParams({
-    client_id:     OAUTH.clientId,
-    grant_type:    'refresh_token',
-    refresh_token: rt,
-    scope:         D365.scope,
-  });
-  const resp = await fetch(
-    `https://login.microsoftonline.com/${OAUTH.tenantId}/oauth2/v2.0/token`,
-    { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body }
-  );
-  const data = await resp.json();
-  if (!resp.ok) throw new Error('D365トークン取得失敗: ' + (data.error_description || data.error));
-  d365Token = data.access_token;
-  if (data.refresh_token) await dbSet('refreshToken', data.refresh_token);
-  return d365Token;
-}
-
-// ═══════════════════════════════════════════
-// D365 API GET ヘルパー (v2.11追加)
-// ═══════════════════════════════════════════
-async function d365Get(relUrl, token) {
-  const url = relUrl.startsWith('http') ? relUrl : D365.apiBase + relUrl;
-  const resp = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'application/json',
-      'OData-MaxVersion': '4.0',
-      'OData-Version': '4.0',
-      'Prefer': 'odata.include-annotations="*"',
-    }
-  });
-  if (!resp.ok) {
-    const txt = await resp.text();
-    throw new Error(`D365 API エラー ${resp.status}: ${txt.slice(0,200)}`);
-  }
-  const data = await resp.json();
-  return data.value || data;
-}
-
-// ═══════════════════════════════════════════
-// Step 1: 未完了 sale_detail → 契約GUID収集
-// ═══════════════════════════════════════════
-async function fetchActiveContractGuids(token) {
-  addLog('🔍 Step1: 未完了契約を取得中...', '');
-  let contractGuids = new Set();
-  let url = `cr49f_sale_details?$filter=cr49f_closing eq false`
-          + `&$select=cr49f_sale_detail_id,_cr49f_sale_contract_id_value`
-          + `&$top=500`;
-  while (url) {
-    const page = await d365Get(url, token);
-    const rows = Array.isArray(page) ? page : (page.value || [page]);
-    rows.forEach(r => {
-      if (r._cr49f_sale_contract_id_value) contractGuids.add(r._cr49f_sale_contract_id_value);
-    });
-    url = page['@odata.nextLink'] || null;
-  }
-  addLog(`✅ Step1完了: 未完了契約 ${contractGuids.size} 件`, 'ok');
-  return [...contractGuids];
-}
-
-// ═══════════════════════════════════════════
-// Step 2: 契約GUID → booking 取得 (10件ずつ分割)
-// ═══════════════════════════════════════════
-async function fetchBookingsByContracts(contractGuids, token) {
-  addLog('📦 Step2: ブッキング情報を取得中...', '');
-
-  const all = [];
-  const CHUNK = 10;
-  for (let i = 0; i < contractGuids.length; i += CHUNK) {
-    const chunk = contractGuids.slice(i, i + CHUNK);
-    const filter = chunk.map(g => `_cr49f_sale_contract_id_value eq ${g}`).join(' or ');
-    const expand = `cr49f_sale_contract_id(`
-                 + `$select=cr49f_sale_contract_no,cr49f_sale_contract_date,`
-                 + `cr49f_latest_shipment,cr49f_po_no;`
-                 + `$expand=cr49f_buyer_id($select=cr49f_buyer_name,cr49f_buyer),`
-                 + `cr49f_agent_id($select=cr49f_agent_name,cr49f_agent)),`
-                 + `cr49f_carrier_id($select=crcf9_carrier),`
-                 + `cr49f_region_japan_id($select=crcf9_pol),`
-                 + `cr49f_region_id($select=cr49f_pod)`;
-    const url = `cr49f_bookings?$filter=${filter}`
-              + `&$select=cr49f_bookingid,cr49f_bl_number,cr49f_booking_no,cr49f_invoice_no,`
-              + `cr49f_main_ship_name,cr49f_etd,cr49f_eta,crcf9_bl_etd,crcf9_bl_eta,`
-              + `_cr49f_sale_contract_id_value`
-              + `&$expand=${expand}`;
-    const rows = await d365Get(url, token);
-    all.push(...(Array.isArray(rows) ? rows : [rows]));
-    setProgress(20 + Math.round(30 * (i / contractGuids.length)), `ブッキング取得中 ${all.length}件...`);
-  }
-  addLog(`✅ Step2完了: ブッキング ${all.length} 件`, 'ok');
-  return all;
-}
-
-// ═══════════════════════════════════════════
-// Step 3: booking GUID → container_info (10件ずつ)
-// ═══════════════════════════════════════════
-async function fetchContainerInfos(bookingGuids, token) {
-  addLog('🚢 Step3: コンテナ情報を取得中...', '');
-
-  const all = [];
-  const CHUNK = 10;
-  for (let i = 0; i < bookingGuids.length; i += CHUNK) {
-    const chunk = bookingGuids.slice(i, i + CHUNK);
-    const filter = chunk.map(g => `_crcf9_booking_id_value eq ${g}`).join(' or ');
-    const url = `crcf9_container_informations?$filter=${filter}`
-              + `&$select=crcf9_container_informationid,_crcf9_booking_id_value,`
-              + `crcf9_n_w,crcf9_container_no,crcf9_type`
-              + `&$expand=crcf9_item_id($select=cr49f_item,cr49f_item_name),`
-              + `crcf9_sale_detail_id($select=cr49f_price,cr49f_quantity)`;
-    const rows = await d365Get(url, token);
-    all.push(...(Array.isArray(rows) ? rows : [rows]));
-    setProgress(50 + Math.round(30 * (i / bookingGuids.length)), `コンテナ情報取得中 ${all.length}件...`);
-  }
-  addLog(`✅ Step3完了: コンテナ情報 ${all.length} 行`, 'ok');
-  return all;
-}
-
-// ═══════════════════════════════════════════
-// D365 応答 → scheduleRows 変換 (v2.11追加)
-// ═══════════════════════════════════════════
-function buildScheduleRowsFromD365(bookings, containerInfos) {
-  // ① container_info を booking_id でグループ化
-  const ciByBooking = {};
-  containerInfos.forEach(ci => {
-    const bkId = ci._crcf9_booking_id_value;
-    if (!ciByBooking[bkId]) ciByBooking[bkId] = [];
-    ciByBooking[bkId].push(ci);
-  });
-
-  const rows = [];
-
-  bookings.forEach(bk => {
-    const sc        = bk.cr49f_sale_contract_id || {};
-    const buyerData = sc.cr49f_buyer_id  || {};
-    const agentData = sc.cr49f_agent_id  || {};
-
-    // ② Buyer / Agent — Power Query と同じフィールド参照
-    const buyerName = (buyerData.cr49f_buyer  || '').trim();
-    const agentRaw  = (agentData.cr49f_agent  || '').toString().trim();
-    // agentが純粋な数字のみの場合はエージェントなし扱い
-    const agentName = /^\d+$/.test(agentRaw) ? '' : agentRaw;
-
-    // ③ Carrier / POL / POD — $expand で取得した名称フィールドを参照
-    const carrier = bk.cr49f_carrier_id?.crcf9_carrier    || '';
-    const pol     = bk.cr49f_region_japan_id?.crcf9_pol   || '';
-    const pod     = bk.cr49f_region_id?.cr49f_pod          || '';
-
-    // ④ 日付
-    const blDate    = bk.crcf9_bl_etd ? bk.crcf9_bl_etd.slice(0,10).replace(/-/g,'/') : '';
-    const blDateRaw = bk.crcf9_bl_etd ? new Date(bk.crcf9_bl_etd) : null;
-    const etaRaw_   = bk.crcf9_bl_eta || bk.cr49f_eta || null;
-    const eta       = etaRaw_ ? etaRaw_.slice(0,10).replace(/-/g,'/') : '';
-    const etdRaw    = bk.cr49f_etd   ? new Date(bk.cr49f_etd) : null; // fallback용
-
-    // ⑤ このbookingに紐づくcontainer_info を取得
-    const containers = ciByBooking[bk.cr49f_bookingid] || [];
-    const containerCount = containers.length;
-
-    // ⑥ item/price コンボ別に N/W を集計
-    const comboMap = {};
-    containers.forEach(ci => {
-      const item  = ci.crcf9_item_id?.cr49f_item || '';
-      const price = ci.crcf9_sale_detail_id?.cr49f_price  ?? '';
-      const qty   = Number(ci.crcf9_sale_detail_id?.cr49f_quantity ?? 0);
-      const nwKg  = ci.crcf9_n_w != null ? Number(ci.crcf9_n_w) : 0;
-      const key   = `${item}||${price}`;
-      if (!comboMap[key]) {
-        comboMap[key] = { item, price, qty, netWkg: 0 };
+      var encoded=SP_EMAIL_FILE_PATH.split('/').map(encodeURIComponent).join('/');
+      var url='https://graph.microsoft.com/v1.0/drives/'+SP_DRIVE_ID+'/root:/'+encoded+':/content';
+      addLog('📡 [SP] DriveID方式で取得中...','ok');
+      var res=await fetch(url,{headers:{'Authorization':'Bearer '+grTok}});
+      if(!res.ok){
+        var detail='';
+        try{var j=await res.json();detail=j&&j.error&&j.error.message||'';}catch(_){}
+        throw new Error('HTTP '+res.status+(detail?' / '+detail:''));
       }
-      comboMap[key].netWkg += nwKg;
-    });
-
-    // ⑦ Bug 5: N/W 총합=0 & container=0 인 물량미확정 부킹 제외
-    const totalNWkg = Object.values(comboMap).reduce((s, c) => s + c.netWkg, 0);
-    if (totalNWkg === 0 && containerCount === 0) return;
-
-    // ⑧ nwMap / qtyMap を構築 (Bug 3+4: 1부킹=1행, 멀티GRADE 지원)
-    const coNo  = sc.cr49f_sale_contract_no || '';
-    const nwMap  = {};
-    const qtyMap = {};
-    Object.values(comboMap).forEach(combo => {
-      const key = `${coNo}||${combo.item}||${combo.price}`;
-      nwMap[key]  = Math.round(combo.netWkg / 10) / 100;  // kg÷1000→MT, 소수2자리
-      qtyMap[key] = combo.qty;
-    });
-
-    // ⑨ 1부킹 = 1행
-    rows.push({
-      buyer: buyerName, agent: agentName,
-      invoiceNo: bk.cr49f_invoice_no  || '',
-      blNo:      bk.cr49f_bl_number   || '',
-      bookingNo: bk.cr49f_booking_no  || '',
-      vessel:    bk.cr49f_main_ship_name || '',
-      carrier, pol, pod, blDate, blDateRaw, eta, etdRaw,
-      coNo,
-      poNo:      sc.cr49f_po_no || '',
-      container: String(containerCount),
-      nwMap,
-      qtyMap,
-    });
-  });
-
-  // ⑨ BL DATE 昇順ソート (null の場合は ETD で fallback)
-  rows.sort((a, b) => {
-    const da = a.blDateRaw || a.etdRaw;
-    const db = b.blDateRaw || b.etdRaw;
-    if (!da && !db) return 0;
-    if (!da) return 1;
-    if (!db) return -1;
-    return da - db;
-  });
-
-  return rows;
-}
-
-// ═══════════════════════════════════════════
-// buildBuyerData: scheduleRows + mailMap → buyerData (v2.11共通化)
-// ═══════════════════════════════════════════
-function buildBuyerData(scheduleRows, mailMap) {
-  const groups = {};
-  scheduleRows.forEach(r => {
-    if (!groups[r.buyer]) groups[r.buyer] = [];
-    groups[r.buyer].push(r);
-  });
-
-  Object.values(groups).forEach(rows => {
-    rows.sort((a, b) => {
-      const da = a.blDateRaw || a.etdRaw;
-      const db = b.blDateRaw || b.etdRaw;
-      if (!da && !db) return 0;
-      if (!da) return 1;
-      if (!db) return -1;
-      return da - db;
-    });
-  });
-
-  buyerData = Object.entries(groups).map(([buyer, rows]) => {
-    const agent = (rows[0].agent || '').toString().trim();
-    const agentIsZero = agent === '' || /^\d+$/.test(agent);
-
-    let resolved = null;
-    let sendType = '';
-
-    if (!agentIsZero) {
-      const importerKey = `${agent}::${buyer}`;
-      if (mailMap[importerKey]) {
-        resolved = mailMap[importerKey];
-        sendType = 'importer';
-      } else {
-        const agentKey = `${agent}::`;
-        if (mailMap[agentKey]) {
-          resolved = mailMap[agentKey];
-          sendType = 'agent';
-        }
-      }
-    } else {
-      const directKey = `::${buyer}`;
-      if (mailMap[directKey]) {
-        resolved = mailMap[directKey];
-        sendType = 'direct';
-      }
-    }
-
-    const validDates = rows.map(r => r.etdRaw).filter(Boolean);
-    const etdMin = validDates.length ? new Date(Math.min(...validDates)) : null;
-    const etdMax = validDates.length ? new Date(Math.max(...validDates)) : null;
-
-    return {
-      buyer,
-      agent: agentIsZero ? '' : agent,
-      rows,
-      emailTo:  resolved ? resolved.to  : '',
-      emailCC:  resolved ? resolved.cc  : '',
-      sendType: resolved ? sendType : 'nomail',
-      etdMin, etdMax,
-      selected: false,
-    };
-  });
-
-  buyerData.sort((a, b) => a.buyer.localeCompare(b.buyer));
-  filteredData = [...buyerData];
-
-  renderStats();
-  renderTable();
-
-  document.getElementById('summaryBar').style.display = 'flex';
-  document.getElementById('controls').style.display   = 'flex';
-  document.getElementById('tableWrap').style.display  = 'block';
-  document.getElementById('sendPanel').style.display  = 'flex';
-}
-
-// ═══════════════════════════════════════════
-// D365 からデータ取得 (v2.11追加)  ← メインエントリ
-// ═══════════════════════════════════════════
-async function loadFromD365() {
-  showError('');
-  setProgress(0, '');
-  log('');
-
-  if (!graphToken) {
-    showError('⚠️ 先に「Outlookログイン」でログインしてください。');
-    return;
-  }
-
-  const btn = document.getElementById('btnD365Load');
-  if (btn) btn.disabled = true;
-
-  try {
-    showLoading('COMPASSからデータ取得中...');
-    addLog('🔐 D365トークン取得中...', '');
-    setProgress(5, 'D365認証中...');
-
-    const token = await getD365Token();
-
-    setProgress(10, '未完了契約を検索中...');
-    const contractGuids = await fetchActiveContractGuids(token);
-
-    if (contractGuids.length === 0) {
-      addLog('⚠️ 未完了契約が見つかりませんでした。', 'warn');
-      hideLoading();
-      if (btn) btn.disabled = false;
-      return;
-    }
-
-    setProgress(20, 'ブッキング情報を取得中...');
-    const bookings = await fetchBookingsByContracts(contractGuids, token);
-
-    const bookingGuids = bookings.map(b => b.cr49f_bookingid).filter(Boolean);
-    setProgress(50, 'コンテナ情報を取得中...');
-    const containerInfos = await fetchContainerInfos(bookingGuids, token);
-
-    setProgress(80, 'データを組み立て中...');
-    const scheduleRows = buildScheduleRowsFromD365(bookings, containerInfos);
-
-    addLog(`📊 スケジュールデータ: ${scheduleRows.length} 行`, 'ok');
-    setProgress(90, 'メールマスター確認中...');
-
-    // E-mailマスターが読み込まれていれば即 buildBuyerData
-    if (Object.keys(mailMapGlobal).length > 0) {
-      buildBuyerData(scheduleRows, mailMapGlobal);
-      addLog(`✅ 完了 (D365+メールマスター統合)`, 'ok');
-    } else if (autoLoadPromise) {
-      // SP自動取得が進行中 → 完了を待機
-      window._pendingScheduleRows = scheduleRows;
-      addLog(`⟳ E-mailマスター取得完了を待機中...`, 'ok');
-      await autoLoadPromise;
-      if (Object.keys(mailMapGlobal).length > 0) {
-        buildBuyerData(scheduleRows, mailMapGlobal);
-        window._pendingScheduleRows = null;
-        addLog(`✅ 完了 (D365+メールマスター統合)`, 'ok');
-      } else {
-        addLog(`⚠️ E-mailマスターの自動取得に失敗しました。手動で選択してください。`, 'warn');
-      }
-    } else {
-      // scheduleRows を保持して待機
-      window._pendingScheduleRows = scheduleRows;
-      addLog(`⚠️ E-mailマスターExcelを読み込んでください（下のボタン）`, 'warn');
-    }
-
-    setProgress(100, '');
-    document.getElementById('d365Status').textContent = `✅ COMPASSデータ取得完了 (${scheduleRows.length}行)`;
-    document.getElementById('d365Status').style.color = 'var(--ok)';
-
-  } catch(e) {
-    showError('D365エラー: ' + e.message);
-    addLog('❌ ' + e.message, 'err');
-    document.getElementById('d365Status').textContent = '❌ 取得失敗';
-    document.getElementById('d365Status').style.color = 'var(--err)';
-  } finally {
-    hideLoading();
-    if (btn) btn.disabled = false;
-  }
-}
-
-// ═══════════════════════════════════════════
-// E-mailマスター SharePoint 自動取得 (v3.11: D-01実績方式)
-// drives/{driveId}/root:/{encoded}:/content
-// ═══════════════════════════════════════════
-function autoLoadEmailMaster() {
-  if (!graphToken) {
-    addLog('⚠️ [SP] graphToken なし → スキップ', 'warn');
-    return;
-  }
-  const statusEl = document.getElementById('emailFileStatus');
-  autoLoadPromise = (async () => {
-    try {
-      statusEl.textContent = '⟳ SharePointからE-mailマスター取得中...';
-      const encoded = SP_EMAIL_FILE_PATH.split('/').map(encodeURIComponent).join('/');
-      const url = `https://graph.microsoft.com/v1.0/drives/${SP_DRIVE_ID}/root:/${encoded}:/content`;
-      addLog(`📡 [SP] DriveID方式で取得中...`, 'ok');
-      const res = await fetch(url, { headers: { 'Authorization': `Bearer ${graphToken}` } });
-      if (!res.ok) {
-        let detail = '';
-        try { const j = await res.json(); detail = j?.error?.message || ''; } catch(_) {}
-        throw new Error(`HTTP ${res.status}${detail ? ' / ' + detail : ''}`);
-      }
-      const buf = await res.arrayBuffer();
-      const wb  = XLSX.read(new Uint8Array(buf), { type: 'array', raw: true });
-      emailFileHandle = null;
-      parseEmailMaster(wb, 'Shipping Schedule(E-mail ADD).xlsm [SP自動取得]');
-      addLog(`✅ [SP] E-mailマスター取得成功`, 'ok');
-    } catch(e) {
-      statusEl.textContent = '⚠️ 自動取得失敗 → 手動で選択してください';
-      addLog(`❌ [SP] 自動取得失敗: ${e.message}`, 'err');
-    } finally {
-      autoLoadPromise = null;
+      var buf=await res.arrayBuffer();
+      var wb=XLSX.read(new Uint8Array(buf),{type:'array',raw:true});
+      emailFileHandle=null;
+      parseEmailMaster(wb,'Shipping Schedule(E-mail ADD).xlsm [SP自動取得]');
+      addLog('✅ [SP] E-mailマスター取得成功','ok');
+    }catch(e){
+      statusEl.textContent='⚠️ 自動取得失敗 → 手動で選択してください';
+      addLog('❌ [SP] 自動取得失敗: '+e.message,'err');
+    }finally{
+      autoLoadPromise=null;
     }
   })();
 }
 
-// E-mailマスター Excel 選択・読み込み (v2.11)
-// ═══════════════════════════════════════════
-async function selectEmailFile() {
-  if (!window.showOpenFilePicker) {
-    showError('このブラウザはファイル選択に対応していません。Chrome/Edgeをご使用ください。');
-    return;
-  }
-  try {
-    const [h] = await window.showOpenFilePicker({
-      types: [{ description: 'Excel Files',
-        accept: {
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-          'application/vnd.ms-excel.sheet.macroenabled.12': ['.xlsm'],
-        }
-      }],
-      multiple: false
-    });
-    emailFileHandle = h;
-    await dbSet('emailFile', h);
-    document.getElementById('emailFileStatus').textContent = `📄 ${h.name}  読み込み中...`;
+/* ═══════════════════════════════════════════
+   E-mailマスター 手動選択
+═══════════════════════════════════════════ */
+async function selectEmailFile(){
+  if(!window.showOpenFilePicker){showError('このブラウザはファイル選択に対応していません。Chrome/Edgeをご使用ください。');return;}
+  try{
+    var handles=await window.showOpenFilePicker({types:[{description:'Excel Files',accept:{
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'],
+      'application/vnd.ms-excel.sheet.macroenabled.12':['.xlsm'],
+    }}],multiple:false});
+    emailFileHandle=handles[0];
+    await dbSet('emailFile',handles[0]);
+    document.getElementById('emailFileStatus').textContent='📄 '+handles[0].name+'  読み込み中...';
     await loadEmailMaster();
-  } catch(e) {
-    if (e.name !== 'AbortError') showError('ファイル選択エラー: ' + e.message);
+  }catch(e){
+    if(e.name!=='AbortError') showError('ファイル選択エラー: '+e.message);
   }
 }
 
-async function loadEmailMaster() {
-  if (!emailFileHandle) return;
-  try {
-    let perm = await emailFileHandle.queryPermission({ mode: 'read' });
-    if (perm !== 'granted') perm = await emailFileHandle.requestPermission({ mode: 'read' });
-    if (perm !== 'granted') { showError('E-mailマスターファイルのアクセス権限がありません。'); return; }
-
-    const file = await emailFileHandle.getFile();
-    const buf  = await file.arrayBuffer();
-    const wb   = XLSX.read(new Uint8Array(buf), { type: 'array', raw: true });
+async function loadEmailMaster(){
+  if(!emailFileHandle) return;
+  try{
+    var perm=await emailFileHandle.queryPermission({mode:'read'});
+    if(perm!=='granted') perm=await emailFileHandle.requestPermission({mode:'read'});
+    if(perm!=='granted'){showError('E-mailマスターファイルのアクセス権限がありません。');return;}
+    var file=await emailFileHandle.getFile();
+    var buf=await file.arrayBuffer();
+    var wb=XLSX.read(new Uint8Array(buf),{type:'array',raw:true});
     parseEmailMaster(wb);
-  } catch(e) {
-    showError('E-mailマスター読み込みエラー: ' + e.message);
+  }catch(e){
+    showError('E-mailマスター読み込みエラー: '+e.message);
   }
 }
 
-// ── Graph API: メール送信 (添付ファイルあり) ──
-async function sendMailGraph(b) {
-  if (!graphToken) {
-    alert('先に「Outlookログイン」ボタンでログインしてください。');
-    return false;
-  }
-
-  const ymd = todayYMD();
-  const subject = `[LEENEAR AutoSend] ${b.buyer} - Shipping Schedule ${ymd}`;
-
-  // ── Contract / PO No. 組み立て ──
-  // CO_NO × PO_No の組合せを収集 (重複除去)
-  const contracts = [];
-  const poNos     = [];
-  const seen = new Set();
-  let poSameAsCo = true; // 全行で CO_NO == PO_No かどうか
-  b.rows.forEach(r => {
-    const co = (r.coNo || '').toString().trim();
-    const po = (r.poNo || '').toString().trim();
-    if (co && !seen.has(co)) { seen.add(co); contracts.push(co); }
-    // PO_No が CO_NO と異なる場合のみ収集
-    if (po && po !== co && !poNos.includes(po)) poNos.push(po);
-    if (po && po !== co) poSameAsCo = false;
+/* ═══════════════════════════════════════════
+   Graph API: メール送信
+═══════════════════════════════════════════ */
+async function sendMailGraph(b){
+  var grTok=await LEENAI.auth.token('graph');
+  if(!grTok){alert('Outlookへの接続がありません。再ログインしてください。');return false;}
+  var ymd=todayYMD();
+  var subject='[LEENEAR AutoSend] '+b.buyer+' - Shipping Schedule '+ymd;
+  var contracts=[],poNos=[],seen=new Set(),poSameAsCo=true;
+  b.rows.forEach(function(r){
+    var co=(r.coNo||'').toString().trim(),po=(r.poNo||'').toString().trim();
+    if(co&&!seen.has(co)){seen.add(co);contracts.push(co);}
+    if(po&&po!==co&&!poNos.includes(po)) poNos.push(po);
+    if(po&&po!==co) poSameAsCo=false;
   });
-
-  // CO_NO == PO_No の場合: "Contract / PO No. : ..." (1行)
-  // CO_NO != PO_No の場合: "Contract : ..."  +  "PO No. : ..." (2行)
-  let contractLine = '';
-  let poLine = '';
-  if (poSameAsCo || poNos.length === 0) {
-    // 全バイヤー行で CO_NO = PO_No、または PO_No が空
-    contractLine = contracts.length
-      ? `  Contract / PO No. : ${contracts.join(' / ')}`
-      : '';
-  } else {
-    contractLine = contracts.length
-      ? `  Contract          : ${contracts.join(' / ')}`
-      : '';
-    poLine = poNos.length
-      ? `  PO No.            : ${poNos.join(' / ')}`
-      : '';
-  }
-  const infoBlock = [contractLine, poLine, `  Buyer             : ${b.buyer}`]
-    .filter(Boolean).join('\n');
-
-  const bodyText = [
-    `Dear Sir/Madam,`,
-    ``,
-    `Please kindly find the attached shipping schedule.`,
-    ``,
-    infoBlock,
-    ``,
-    `Please feel free to contact us if you have any questions.`,
-    ``,
-    `Thanks,`,
-    `Best regards,`,
-    ``,
-    `LEENEAR CORPORATION`,
-    `TEL: +81-3-3528-9850  FAX: +81-3-3528-9851`,
-    `E-mail: rcp@leenearcorp.com`,
-    `Web: www.leenearcorp.com`,
-    `─────────────────────────────────────────`,
-    `✦ Powered by LEENAI Automation System`,
-  ].join('\r\n');
-
-  // CC 組み立て
-  const ccAddresses = [b.emailCC, 'rcp@leenearcorp.com']
-    .flatMap(s => (s||'').split(';'))
-    .filter(Boolean)
-    .filter((v,i,a) => a.indexOf(v) === i)
-    .map(addr => ({emailAddress:{address:addr}}));
-
-  // Excel 生成 → Base64
-  const excelData = generateExcel(b);
-  // base64 인코딩 (8192바이트 청킹 — 스택오버플로 방지)
-  const bytes2 = new Uint8Array(excelData);
-  let binary = '';
-  for (let i = 0; i < bytes2.length; i += 8192) {
-    binary += String.fromCharCode(...bytes2.subarray(i, i + 8192));
-  }
-  const base64    = btoa(binary);
-  const fileName  = `Shipping Schedule_${b.buyer}_${ymd}.xlsx`;
-
-  const message = {
-    subject,
-    body:         { contentType: 'Text', content: bodyText },
-    toRecipients: [{ emailAddress: { address: b.emailTo } }],
-    ccRecipients: ccAddresses,
-    attachments:  [{
-      '@odata.type': '#microsoft.graph.fileAttachment',
-      name:          fileName,
-      contentType:   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      contentBytes:  base64
-    }]
-  };
-
-  // ✅ 直接送付モード (sendMail API)
-  const resp = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
-    method:  'POST',
-    headers: {
-      'Authorization': `Bearer ${graphToken}`,
-      'Content-Type':  'application/json'
-    },
-    body: JSON.stringify({ message, saveToSentItems: true })
-  });
-
-  if (resp.status === 202) {
-    return true; // 送付完了
-  }
-
-  // トークン期限切れ → 再ログイン
-  if (resp.status === 401) {
-    graphToken = null;
-    updateAuthUI(false);
-    throw new Error('トークンが期限切れです。再度ログインしてください。');
-  }
-
-  const err = await resp.text();
-  throw new Error(`Graph API エラー (${resp.status}): ${err}`);
+  var contractLine='',poLine='';
+  if(poSameAsCo||poNos.length===0){contractLine=contracts.length?'  Contract / PO No. : '+contracts.join(' / '):'';}
+  else{contractLine=contracts.length?'  Contract          : '+contracts.join(' / '):'';poLine=poNos.length?'  PO No.            : '+poNos.join(' / '):'';}
+  var infoBlock=[contractLine,poLine,'  Buyer             : '+b.buyer].filter(Boolean).join('\n');
+  var bodyText=['Dear Sir/Madam,','','Please kindly find the attached shipping schedule.','',infoBlock,'',
+    'Please feel free to contact us if you have any questions.','','Thanks,','Best regards,','',
+    'LEENEAR CORPORATION','TEL: +81-3-3528-9850  FAX: +81-3-3528-9851',
+    'E-mail: rcp@leenearcorp.com','Web: www.leenearcorp.com',
+    '─────────────────────────────────────────','✦ Powered by LEENAI Automation System'].join('\r\n');
+  var ccAddresses=[b.emailCC,'rcp@leenearcorp.com']
+    .flatMap(function(s){return (s||'').split(';');}).filter(Boolean)
+    .filter(function(v,i,a){return a.indexOf(v)===i;})
+    .map(function(addr){return {emailAddress:{address:addr}};});
+  var excelData=generateExcel(b);
+  var bytes2=new Uint8Array(excelData),binary='';
+  for(var i=0;i<bytes2.length;i+=8192){binary+=String.fromCharCode.apply(null,bytes2.subarray(i,i+8192));}
+  var base64=btoa(binary),fileName='Shipping Schedule_'+b.buyer+'_'+ymd+'.xlsx';
+  var message={subject:subject,body:{contentType:'Text',content:bodyText},
+    toRecipients:[{emailAddress:{address:b.emailTo}}],ccRecipients:ccAddresses,
+    attachments:[{'@odata.type':'#microsoft.graph.fileAttachment',name:fileName,
+      contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',contentBytes:base64}]};
+  var resp=await fetch('https://graph.microsoft.com/v1.0/me/sendMail',{method:'POST',
+    headers:{'Authorization':'Bearer '+grTok,'Content-Type':'application/json'},
+    body:JSON.stringify({message:message,saveToSentItems:true})});
+  if(resp.status===202) return true;
+  if(resp.status===401) throw new Error('トークンが期限切れです。再度ログインしてください。');
+  var err=await resp.text();
+  throw new Error('Graph API エラー ('+resp.status+'): '+err);
 }
 
-// ── Graph API: 下書き保存 (担当者確認用) ──────────────────
-async function sendMailDraft(b) {
-  if (!graphToken) {
-    alert('先に「Outlookログイン」ボタンでログインしてください。');
-    return false;
-  }
-
-  const ymd = todayYMD();
-  const subject = `[LEENEAR AutoSend] ${b.buyer} - Shipping Schedule ${ymd}`;
-
-  // ── Contract / PO No. 組み立て (sendMailGraph と同じロジック) ──
-  const contracts = [];
-  const poNos     = [];
-  const seen = new Set();
-  let poSameAsCo = true;
-  b.rows.forEach(r => {
-    const co = (r.coNo || '').toString().trim();
-    const po = (r.poNo || '').toString().trim();
-    if (co && !seen.has(co)) { seen.add(co); contracts.push(co); }
-    if (po && po !== co && !poNos.includes(po)) poNos.push(po);
-    if (po && po !== co) poSameAsCo = false;
+/* ═══════════════════════════════════════════
+   Graph API: 下書き保存
+═══════════════════════════════════════════ */
+async function sendMailDraft(b){
+  var grTok=await LEENAI.auth.token('graph');
+  if(!grTok){alert('Outlookへの接続がありません。再ログインしてください。');return false;}
+  var ymd=todayYMD();
+  var subject='[LEENEAR AutoSend] '+b.buyer+' - Shipping Schedule '+ymd;
+  var contracts=[],poNos=[],seen=new Set(),poSameAsCo=true;
+  b.rows.forEach(function(r){
+    var co=(r.coNo||'').toString().trim(),po=(r.poNo||'').toString().trim();
+    if(co&&!seen.has(co)){seen.add(co);contracts.push(co);}
+    if(po&&po!==co&&!poNos.includes(po)) poNos.push(po);
+    if(po&&po!==co) poSameAsCo=false;
   });
-
-  let contractLine = '';
-  let poLine = '';
-  if (poSameAsCo || poNos.length === 0) {
-    contractLine = contracts.length ? `  Contract / PO No. : ${contracts.join(' / ')}` : '';
-  } else {
-    contractLine = contracts.length ? `  Contract          : ${contracts.join(' / ')}` : '';
-    poLine = poNos.length ? `  PO No.            : ${poNos.join(' / ')}` : '';
-  }
-  const infoBlock = [contractLine, poLine, `  Buyer             : ${b.buyer}`]
-    .filter(Boolean).join('\n');
-
-  const bodyText = [
-    `Dear Sir/Madam,`,
-    ``,
-    `Please kindly find the attached shipping schedule.`,
-    ``,
-    infoBlock,
-    ``,
-    `Please feel free to contact us if you have any questions.`,
-    ``,
-    `Thanks,`,
-    `Best regards,`,
-    ``,
-    `LEENEAR CORPORATION`,
-    `TEL: +81-3-3528-9850  FAX: +81-3-3528-9851`,
-    `E-mail: rcp@leenearcorp.com`,
-    `Web: www.leenearcorp.com`,
-    `─────────────────────────────────────────`,
-    `✦ Powered by LEENAI Automation System`,
-  ].join('\r\n');
-
-  const ccAddresses = [b.emailCC, 'rcp@leenearcorp.com']
-    .flatMap(s => (s||'').split(';'))
-    .filter(Boolean)
-    .filter((v,i,a) => a.indexOf(v) === i)
-    .map(addr => ({emailAddress:{address:addr}}));
-
-  const excelData = generateExcel(b);
-  const bytes2 = new Uint8Array(excelData);
-  let binary = '';
-  for (let i = 0; i < bytes2.length; i += 8192) {
-    binary += String.fromCharCode(...bytes2.subarray(i, i + 8192));
-  }
-  const base64   = btoa(binary);
-  const fileName = `Shipping Schedule_${b.buyer}_${ymd}.xlsx`;
-
-  const message = {
-    subject,
-    body:         { contentType: 'Text', content: bodyText },
-    toRecipients: [{ emailAddress: { address: b.emailTo } }],
-    ccRecipients: ccAddresses,
-    attachments:  [{
-      '@odata.type': '#microsoft.graph.fileAttachment',
-      name:          fileName,
-      contentType:   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      contentBytes:  base64
-    }]
-  };
-
-  // 下書き保存
-  const resp = await fetch('https://graph.microsoft.com/v1.0/me/messages', {
-    method:  'POST',
-    headers: {
-      'Authorization': `Bearer ${graphToken}`,
-      'Content-Type':  'application/json'
-    },
-    body: JSON.stringify(message)
-  });
-
-  if (resp.status === 201) {
-    const draft = await resp.json();
-    return draft.id;
-  }
-  if (resp.status === 401) {
-    graphToken = null;
-    updateAuthUI(false);
-    throw new Error('トークンが期限切れです。再度ログインしてください。');
-  }
-  const err2 = await resp.text();
-  throw new Error(`Graph API エラー (${resp.status}): ${err2}`);
+  var contractLine='',poLine='';
+  if(poSameAsCo||poNos.length===0){contractLine=contracts.length?'  Contract / PO No. : '+contracts.join(' / '):'';}
+  else{contractLine=contracts.length?'  Contract          : '+contracts.join(' / '):'';poLine=poNos.length?'  PO No.            : '+poNos.join(' / '):'';}
+  var infoBlock=[contractLine,poLine,'  Buyer             : '+b.buyer].filter(Boolean).join('\n');
+  var bodyText=['Dear Sir/Madam,','','Please kindly find the attached shipping schedule.','',infoBlock,'',
+    'Please feel free to contact us if you have any questions.','','Thanks,','Best regards,','',
+    'LEENEAR CORPORATION','TEL: +81-3-3528-9850  FAX: +81-3-3528-9851',
+    'E-mail: rcp@leenearcorp.com','Web: www.leenearcorp.com',
+    '─────────────────────────────────────────','✦ Powered by LEENAI Automation System'].join('\r\n');
+  var ccAddresses=[b.emailCC,'rcp@leenearcorp.com']
+    .flatMap(function(s){return (s||'').split(';');}).filter(Boolean)
+    .filter(function(v,i,a){return a.indexOf(v)===i;})
+    .map(function(addr){return {emailAddress:{address:addr}};});
+  var excelData=generateExcel(b);
+  var bytes2=new Uint8Array(excelData),binary='';
+  for(var i=0;i<bytes2.length;i+=8192){binary+=String.fromCharCode.apply(null,bytes2.subarray(i,i+8192));}
+  var base64=btoa(binary),fileName='Shipping Schedule_'+b.buyer+'_'+ymd+'.xlsx';
+  var message={subject:subject,body:{contentType:'Text',content:bodyText},
+    toRecipients:[{emailAddress:{address:b.emailTo}}],ccRecipients:ccAddresses,
+    attachments:[{'@odata.type':'#microsoft.graph.fileAttachment',name:fileName,
+      contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',contentBytes:base64}]};
+  var resp=await fetch('https://graph.microsoft.com/v1.0/me/messages',{method:'POST',
+    headers:{'Authorization':'Bearer '+grTok,'Content-Type':'application/json'},body:JSON.stringify(message)});
+  if(resp.status===201){var draft=await resp.json();return draft.id;}
+  if(resp.status===401) throw new Error('トークンが期限切れです。再度ログインしてください。');
+  var err2=await resp.text();
+  throw new Error('Graph API エラー ('+resp.status+'): '+err2);
 }
 
-async function sendOneDraft(idx) {
-  const b = filteredData[idx];
-  if (!b || b.sendType === 'nomail') return;
-  if (!graphToken) { alert('先に「Outlookログイン」でログインしてください。'); return; }
-  try {
-    addLog(`📝 ${b.buyer}: 下書き保存中...`, '');
-    await sendMailDraft(b);
-    addLog(`✅ ${b.buyer}: Outlookの下書きに保存しました`, 'ok');
-  } catch(e) {
-    addLog(`❌ ${b.buyer}: ${e.message}`, 'err');
-    alert(`失敗 (${b.buyer}): ${e.message}`);
-  }
+async function sendOneDraft(idx){
+  var b=filteredData[idx];if(!b||b.sendType==='nomail') return;
+  try{addLog('📝 '+b.buyer+': 下書き保存中...','');await sendMailDraft(b);addLog('✅ '+b.buyer+': Outlookの下書きに保存しました','ok');}
+  catch(e){addLog('❌ '+b.buyer+': '+e.message,'err');alert('失敗 ('+b.buyer+'): '+e.message);}
 }
 
-async function sendSelectedDraft() {
-  if (!graphToken) {
-    alert('先に「Outlookログイン」ボタンでログインしてください。');
-    return;
-  }
-  const targets = buyerData.filter(b => b.selected && b.sendType !== 'nomail');
-  if (!targets.length) { alert('送付可能なバイヤーが選択されていません。'); return; }
-
-  document.getElementById('progressWrap').style.display = 'block';
-  setProgress(0, '');
-  log('');
-
-  let ok = 0, ng = 0;
-  for (let i = 0; i < targets.length; i++) {
-    const b = targets[i];
-    setProgress(Math.round((i / targets.length) * 100), `${b.buyer} 下書き保存中... (${i+1}/${targets.length})`);
-    try {
-      await sendMailDraft(b);
-      addLog(`✅ ${b.buyer}: 下書き保存完了`, 'ok');
-      ok++;
-    } catch(e) {
-      addLog(`❌ ${b.buyer}: ${e.message}`, 'err');
-      ng++;
-    }
+async function sendSelectedDraft(){
+  var targets=buyerData.filter(function(b){return b.selected&&b.sendType!=='nomail';});
+  if(!targets.length){alert('送付可能なバイヤーが選択されていません。');return;}
+  document.getElementById('progressWrap').style.display='block';setProgress(0,'');log('');
+  var ok=0,ng=0;
+  for(var i=0;i<targets.length;i++){
+    var b=targets[i];
+    setProgress(Math.round((i/targets.length)*100),b.buyer+' 下書き保存中... ('+(i+1)+'/'+targets.length+')');
+    try{await sendMailDraft(b);addLog('✅ '+b.buyer+': 下書き保存完了','ok');ok++;}
+    catch(e){addLog('❌ '+b.buyer+': '+e.message,'err');ng++;}
     await sleep(500);
   }
-  setProgress(100, `完了 (下書き保存): 成功 ${ok}件 / 失敗 ${ng}件`);
+  setProgress(100,'完了 (下書き保存): 成功 '+ok+'件 / 失敗 '+ng+'件');
 }
 
-async function sendOneGraph(idx) {
-  const b = filteredData[idx];
-  if (!b || b.sendType === 'nomail') return;
-  if (!graphToken) { alert('先に「Outlookログイン」でログインしてください。'); return; }
-  try {
-    addLog(`📤 ${b.buyer}: 送付中...`, '');
-    await sendMailGraph(b);
-    addLog(`✅ ${b.buyer}: 送付完了`, 'ok');
-  } catch(e) {
-    addLog(`❌ ${b.buyer}: ${e.message}`, 'err');
-    alert(`失敗 (${b.buyer}): ${e.message}`);
-  }
+async function sendOneGraph(idx){
+  var b=filteredData[idx];if(!b||b.sendType==='nomail') return;
+  try{addLog('📤 '+b.buyer+': 送付中...','');await sendMailGraph(b);addLog('✅ '+b.buyer+': 送付完了','ok');}
+  catch(e){addLog('❌ '+b.buyer+': '+e.message,'err');alert('失敗 ('+b.buyer+'): '+e.message);}
 }
 
-async function sendSelectedGraph() {
-  if (!graphToken) {
-    alert('先に「Outlookログイン」ボタンでログインしてください。');
-    return;
-  }
-  const targets = buyerData.filter(b => b.selected && b.sendType !== 'nomail');
-  if (!targets.length) { alert('送付可能なバイヤーが選択されていません。'); return; }
-
-  document.getElementById('progressWrap').style.display = 'block';
-  setProgress(0, '');
-  log('');
-
-  let ok = 0, ng = 0;
-  for (let i = 0; i < targets.length; i++) {
-    const b = targets[i];
-    setProgress(Math.round((i / targets.length) * 100), `${b.buyer} 送信中... (${i+1}/${targets.length})`);
-    try {
-      await sendMailGraph(b);
-      addLog(`✅ ${b.buyer}: 送付完了`, 'ok');
-      ok++;
-    } catch(e) {
-      addLog(`❌ ${b.buyer}: ${e.message}`, 'err');
-      ng++;
-    }
+async function sendSelectedGraph(){
+  var targets=buyerData.filter(function(b){return b.selected&&b.sendType!=='nomail';});
+  if(!targets.length){alert('送付可能なバイヤーが選択されていません。');return;}
+  document.getElementById('progressWrap').style.display='block';setProgress(0,'');log('');
+  var ok=0,ng=0;
+  for(var i=0;i<targets.length;i++){
+    var b=targets[i];
+    setProgress(Math.round((i/targets.length)*100),b.buyer+' 送信中... ('+(i+1)+'/'+targets.length+')');
+    try{await sendMailGraph(b);addLog('✅ '+b.buyer+': 送付完了','ok');ok++;}
+    catch(e){addLog('❌ '+b.buyer+': '+e.message,'err');ng++;}
     await sleep(500);
   }
-  setProgress(100, `完了 (送付): 成功 ${ok}件 / 失敗 ${ng}件`);
+  setProgress(100,'完了 (送付): 成功 '+ok+'件 / 失敗 '+ng+'件');
 }
 
-// ═══════════════════════════════════════════
-// 状態
-// ═══════════════════════════════════════════
-let fileHandle = null;
-let buyerData = [];   // [{buyer, agent, rows, emailTo, emailCC, sendType}]
-let filteredData = [];
-let currentModalBuyer = null;
-
-// ═══════════════════════════════════════════
-// IndexedDB: フォルダハンドル保存
-// ═══════════════════════════════════════════
-async function openDb() {
-  return new Promise((res, rej) => {
-    const r = indexedDB.open(FS_DB, 1);
-    r.onupgradeneeded = e => e.target.result.createObjectStore('handles');
-    r.onsuccess = e => res(e.target.result);
-    r.onerror = e => rej(e.target.error);
-  });
-}
-async function dbGet(key) {
-  const db = await openDb();
-  return new Promise((res, rej) => {
-    const r = db.transaction('handles','readonly').objectStore('handles').get(key);
-    r.onsuccess = e => res(e.target.result);
-    r.onerror = e => rej(e.target.error);
-  });
-}
-async function dbSet(key, val) {
-  const db = await openDb();
-  return new Promise((res, rej) => {
-    const r = db.transaction('handles','readwrite').objectStore('handles').put(val, key);
-    r.onsuccess = () => res();
-    r.onerror = e => rej(e.target.error);
-  });
+/* ═══════════════════════════════════════════
+   D365 API
+═══════════════════════════════════════════ */
+async function d365Get(relUrl,token){
+  var url=relUrl.startsWith('http')?relUrl:D365.apiBase+relUrl;
+  var resp=await fetch(url,{headers:{'Authorization':'Bearer '+token,'Accept':'application/json',
+    'OData-MaxVersion':'4.0','OData-Version':'4.0','Prefer':'odata.include-annotations="*"'}});
+  if(!resp.ok){var txt=await resp.text();throw new Error('D365 API エラー '+resp.status+': '+txt.slice(0,200));}
+  var data=await resp.json();return data.value||data;
 }
 
-// 起動時: 保存済みハンドル復元
-window.addEventListener('load', async () => {
-  // テーマ復元 (既存)
-  const saved = localStorage.getItem('leenai_theme') || 'leenai';
-  document.documentElement.setAttribute('data-theme', saved);
-  updateThemeBtn(saved);
-
-  // ファイルハンドル復元 (v2.11: emailFileも復元)
-  try {
-    const eh = await dbGet('emailFile');
-    if (eh) {
-      const perm = await eh.queryPermission({ mode: 'read' });
-      if (perm === 'granted') {
-        emailFileHandle = eh;
-        await loadEmailMaster();
-      } else {
-        emailFileHandle = eh;
-        document.getElementById('emailFileStatus').textContent =
-          `📄 ${eh.name}  （権限確認中）`;
-      }
-    }
-  } catch(e) {}
-});
-
-// ═══════════════════════════════════════════
-// ファイル選択 (showOpenFilePicker)
-// ═══════════════════════════════════════════
-async function selectFile() {
-  if (!window.showOpenFilePicker) {
-    showError('このブラウザはファイル選択に対応していません。Chrome/Edgeをご使用ください。');
-    return;
+async function fetchActiveContractGuids(token){
+  addLog('🔍 Step1: 未完了契約を取得中...','');
+  var contractGuids=new Set();
+  var url='cr49f_sale_details?$filter=cr49f_closing eq false&$select=cr49f_sale_detail_id,_cr49f_sale_contract_id_value&$top=500';
+  while(url){
+    var page=await d365Get(url,token);
+    var rows=Array.isArray(page)?page:(page.value||[page]);
+    rows.forEach(function(r){if(r._cr49f_sale_contract_id_value) contractGuids.add(r._cr49f_sale_contract_id_value);});
+    url=page['@odata.nextLink']||null;
   }
-  try {
-    const [h] = await window.showOpenFilePicker({
-      types: [{
-        description: 'Excel Files',
-        accept: {
-          'application/vnd.ms-excel.sheet.macroenabled.12': ['.xlsm'],
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-        }
-      }],
-      multiple: false
+  addLog('✅ Step1完了: 未完了契約 '+contractGuids.size+' 件','ok');
+  return [...contractGuids];
+}
+
+async function fetchBookingsByContracts(contractGuids,token){
+  addLog('📦 Step2: ブッキング情報を取得中...','');
+  var all=[],CHUNK=10;
+  for(var i=0;i<contractGuids.length;i+=CHUNK){
+    var chunk=contractGuids.slice(i,i+CHUNK);
+    var filter=chunk.map(function(g){return '_cr49f_sale_contract_id_value eq '+g;}).join(' or ');
+    var expand='cr49f_sale_contract_id($select=cr49f_sale_contract_no,cr49f_sale_contract_date,cr49f_latest_shipment,cr49f_po_no;$expand=cr49f_buyer_id($select=cr49f_buyer_name,cr49f_buyer),cr49f_agent_id($select=cr49f_agent_name,cr49f_agent)),cr49f_carrier_id($select=crcf9_carrier),cr49f_region_japan_id($select=crcf9_pol),cr49f_region_id($select=cr49f_pod)';
+    var url2='cr49f_bookings?$filter='+filter+'&$select=cr49f_bookingid,cr49f_bl_number,cr49f_booking_no,cr49f_invoice_no,cr49f_main_ship_name,cr49f_etd,cr49f_eta,crcf9_bl_etd,crcf9_bl_eta,_cr49f_sale_contract_id_value&$expand='+expand;
+    var rows=await d365Get(url2,token);
+    all.push.apply(all,Array.isArray(rows)?rows:[rows]);
+    setProgress(20+Math.round(30*(i/contractGuids.length)),'ブッキング取得中 '+all.length+'件...');
+  }
+  addLog('✅ Step2完了: ブッキング '+all.length+' 件','ok');
+  return all;
+}
+
+async function fetchContainerInfos(bookingGuids,token){
+  addLog('🚢 Step3: コンテナ情報を取得中...','');
+  var all=[],CHUNK=10;
+  for(var i=0;i<bookingGuids.length;i+=CHUNK){
+    var chunk=bookingGuids.slice(i,i+CHUNK);
+    var filter=chunk.map(function(g){return '_crcf9_booking_id_value eq '+g;}).join(' or ');
+    var url2='crcf9_container_informations?$filter='+filter+'&$select=crcf9_container_informationid,_crcf9_booking_id_value,crcf9_n_w,crcf9_container_no,crcf9_type&$expand=crcf9_item_id($select=cr49f_item,cr49f_item_name),crcf9_sale_detail_id($select=cr49f_price,cr49f_quantity)';
+    var rows=await d365Get(url2,token);
+    all.push.apply(all,Array.isArray(rows)?rows:[rows]);
+    setProgress(50+Math.round(30*(i/bookingGuids.length)),'コンテナ情報取得中 '+all.length+'件...');
+  }
+  addLog('✅ Step3完了: コンテナ情報 '+all.length+' 行','ok');
+  return all;
+}
+
+function buildScheduleRowsFromD365(bookings,containerInfos){
+  var ciByBooking={};
+  containerInfos.forEach(function(ci){
+    var bkId=ci._crcf9_booking_id_value;
+    if(!ciByBooking[bkId]) ciByBooking[bkId]=[];
+    ciByBooking[bkId].push(ci);
+  });
+  var rows=[];
+  bookings.forEach(function(bk){
+    var sc=bk.cr49f_sale_contract_id||{};
+    var bd=sc.cr49f_buyer_id||{},ad=sc.cr49f_agent_id||{};
+    var buyerName=(bd.cr49f_buyer||'').trim();
+    var agentRaw=(ad.cr49f_agent||'').toString().trim();
+    var agentName=/^\d+$/.test(agentRaw)?'':agentRaw;
+    var carrier=bk.cr49f_carrier_id&&bk.cr49f_carrier_id.crcf9_carrier||'';
+    var pol=bk.cr49f_region_japan_id&&bk.cr49f_region_japan_id.crcf9_pol||'';
+    var pod=bk.cr49f_region_id&&bk.cr49f_region_id.cr49f_pod||'';
+    var blDate=bk.crcf9_bl_etd?bk.crcf9_bl_etd.slice(0,10).replace(/-/g,'/'):'';
+    var blDateRaw=bk.crcf9_bl_etd?new Date(bk.crcf9_bl_etd):null;
+    var etaRaw_=bk.crcf9_bl_eta||bk.cr49f_eta||null;
+    var eta=etaRaw_?etaRaw_.slice(0,10).replace(/-/g,'/'):'';
+    var etdRaw=bk.cr49f_etd?new Date(bk.cr49f_etd):null;
+    var cts=ciByBooking[bk.cr49f_bookingid]||[];
+    var containerCount=cts.length,comboMap={};
+    cts.forEach(function(ci){
+      var item=ci.crcf9_item_id&&ci.crcf9_item_id.cr49f_item||'';
+      var price=ci.crcf9_sale_detail_id&&ci.crcf9_sale_detail_id.cr49f_price!=null?ci.crcf9_sale_detail_id.cr49f_price:'';
+      var qty=Number(ci.crcf9_sale_detail_id&&ci.crcf9_sale_detail_id.cr49f_quantity||0);
+      var nwKg=ci.crcf9_n_w!=null?Number(ci.crcf9_n_w):0;
+      var key=item+'||'+price;
+      if(!comboMap[key]) comboMap[key]={item:item,price:price,qty:qty,netWkg:0};
+      comboMap[key].netWkg+=nwKg;
     });
-    fileHandle = h;
-    await dbSet('scheduleFile', h);
-    setFileStatus(h.name, true);
-    await loadFromFile();
-  } catch(e) {
-    if (e.name !== 'AbortError') showError('ファイル選択エラー: ' + e.message);
-  }
-}
-
-function setFileStatus(name, ok) {
-  const el = document.getElementById('fileStatus');
-  el.textContent = ok
-    ? `📄 ${name}  ✅ 読み込み済み`
-    : `📄 ${name}  （権限確認中）`;
-  el.className = ok ? 'ok' : '';
-}
-
-// ═══════════════════════════════════════════
-// Excelファイル読み込み
-// ═══════════════════════════════════════════
-async function loadFromFile() {
-  showError('');
-  setProgress(0, '');
-  log('');
-
-  if (!fileHandle) {
-    showError('⚠️ ファイルが選択されていません。');
-    return;
-  }
-
-  try {
-    // 権限確認 → 必要なら再要求
-    let perm = await fileHandle.queryPermission({ mode: 'read' });
-    if (perm !== 'granted') {
-      perm = await fileHandle.requestPermission({ mode: 'read' });
-      if (perm !== 'granted') {
-        showError('ファイルへのアクセス権限がありません。');
-        return;
-      }
-    }
-
-    addLog(`✅ ${fileHandle.name} を読み込み中...`, 'ok');
-    setProgress(20, 'Excelを読み込み中...');
-
-    const file = await fileHandle.getFile();
-    const buf  = await file.arrayBuffer();
-    const wb   = XLSX.read(new Uint8Array(buf), { type: 'array', raw: true });
-
-    setProgress(50, 'データを解析中...');
-    parseEmailMaster(wb);
-    setProgress(100, '完了');
-    document.getElementById('progressWrap').style.display = 'none';
-  } catch(e) {
-    showError('Excelの読み込みに失敗しました。\n手動でExcelファイルを開き、更新してください。\nエラー: ' + e.message);
-  }
-}
-
-// ═══════════════════════════════════════════
-// E-mailマスター Excel 解析 (v2.11 — E-mailシートのみ)
-// ═══════════════════════════════════════════
-function parseEmailMaster(wb, fileNameOverride = null) {
-  const emailSheet = wb.Sheets['E-mail'];
-  if (!emailSheet) { showError('「E-mail」シートが見つかりません。'); return; }
-
-  const emailRows = XLSX.utils.sheet_to_json(emailSheet, { defval: null, raw: true });
-  const mailMap = {};
-  emailRows.forEach(r => {
-    const agent = (r['AGENT'] || '').toString().trim();
-    const buyer = (r['BUYER'] || '').toString().trim();
-    const emails = [
-      r['E-MAIL1'], r['E-MAIL2'], r['E-MAIL3'],
-      r['E-MAIL4'], r['E-MAIL5'], r['E-MAIL6'], r['E-MAIL7']
-    ].map(e => (e||'').toString().trim()).filter(Boolean);
-
-    const to  = emails[0] || '';
-    const cc  = emails.slice(1).join(';');
-    const key = `${agent}::${buyer}`;
-    mailMap[key] = { to, cc, agent, buyer };
+    var totalNWkg=Object.values(comboMap).reduce(function(s,c){return s+c.netWkg;},0);
+    if(totalNWkg===0&&containerCount===0) return;
+    var coNo=sc.cr49f_sale_contract_no||'',nwMap={},qtyMap={};
+    Object.values(comboMap).forEach(function(combo){
+      var key=coNo+'||'+combo.item+'||'+combo.price;
+      nwMap[key]=Math.round(combo.netWkg/10)/100;qtyMap[key]=combo.qty;
+    });
+    rows.push({buyer:buyerName,agent:agentName,invoiceNo:bk.cr49f_invoice_no||'',
+      blNo:bk.cr49f_bl_number||'',bookingNo:bk.cr49f_booking_no||'',vessel:bk.cr49f_main_ship_name||'',
+      carrier:carrier,pol:pol,pod:pod,blDate:blDate,blDateRaw:blDateRaw,eta:eta,etdRaw:etdRaw,
+      coNo:coNo,poNo:sc.cr49f_po_no||'',container:String(containerCount),nwMap:nwMap,qtyMap:qtyMap});
   });
+  rows.sort(function(a,b){
+    var da=a.blDateRaw||a.etdRaw,db=b.blDateRaw||b.etdRaw;
+    if(!da&&!db) return 0;if(!da) return 1;if(!db) return -1;return da-db;
+  });
+  return rows;
+}
 
-  mailMapGlobal = mailMap;
-  addLog(`📧 E-mailマスター: ${emailRows.length} 件`, 'ok');
-  document.getElementById('emailFileStatus').textContent =
-    `📄 ${fileNameOverride || (emailFileHandle ? emailFileHandle.name : 'E-mailマスター')}  ✅ 読み込み済み (${emailRows.length}件)`;
+function buildBuyerData(scheduleRows,mailMap){
+  var groups={};
+  scheduleRows.forEach(function(r){if(!groups[r.buyer]) groups[r.buyer]=[];groups[r.buyer].push(r);});
+  Object.values(groups).forEach(function(rows){
+    rows.sort(function(a,b){
+      var da=a.blDateRaw||a.etdRaw,db=b.blDateRaw||b.etdRaw;
+      if(!da&&!db) return 0;if(!da) return 1;if(!db) return -1;return da-db;
+    });
+  });
+  buyerData=Object.entries(groups).map(function(entry){
+    var buyer=entry[0],rows=entry[1];
+    var agent=(rows[0].agent||'').toString().trim();
+    var agentIsZero=agent===''||/^\d+$/.test(agent);
+    var resolved=null,sendType='';
+    if(!agentIsZero){
+      var ik=agent+'::'+buyer;
+      if(mailMap[ik]){resolved=mailMap[ik];sendType='importer';}
+      else{var ak=agent+'::';if(mailMap[ak]){resolved=mailMap[ak];sendType='agent';}}
+    }else{var dk='::'+buyer;if(mailMap[dk]){resolved=mailMap[dk];sendType='direct';}}
+    var vd=rows.map(function(r){return r.etdRaw;}).filter(Boolean);
+    return{buyer:buyer,agent:agentIsZero?'':agent,rows:rows,
+      emailTo:resolved?resolved.to:'',emailCC:resolved?resolved.cc:'',
+      sendType:resolved?sendType:'nomail',
+      etdMin:vd.length?new Date(Math.min.apply(null,vd)):null,
+      etdMax:vd.length?new Date(Math.max.apply(null,vd)):null,selected:false};
+  });
+  buyerData.sort(function(a,b){return a.buyer.localeCompare(b.buyer);});
+  filteredData=[...buyerData];
+  renderStats();renderTable();
+  document.getElementById('summaryBar').style.display='flex';
+  document.getElementById('controls').style.display='flex';
+  document.getElementById('tableWrap').style.display='block';
+  document.getElementById('sendPanel').style.display='flex';
+}
 
-  // D365データが取得済みの場合は即 buildBuyerData
-  if (window._pendingScheduleRows && window._pendingScheduleRows.length > 0) {
-    buildBuyerData(window._pendingScheduleRows, mailMapGlobal);
-    addLog(`✅ 完了 (D365+メールマスター統合)`, 'ok');
-    window._pendingScheduleRows = null;
+async function loadFromD365(){
+  showError('');setProgress(0,'');log('');
+  var btn=document.getElementById('btnD365Load');
+  if(btn) btn.disabled=true;
+  try{
+    showLoading('COMPASSからデータ取得中...');
+    addLog('🔐 D365トークン取得中...','');setProgress(5,'D365認証中...');
+    var token=await LEENAI.auth.token('dataverse');
+    setProgress(10,'未完了契約を検索中...');
+    var contractGuids=await fetchActiveContractGuids(token);
+    if(contractGuids.length===0){addLog('⚠️ 未完了契約が見つかりませんでした。','warn');hideLoading();if(btn) btn.disabled=false;return;}
+    setProgress(20,'ブッキング情報を取得中...');
+    var bookings=await fetchBookingsByContracts(contractGuids,token);
+    var bookingGuids=bookings.map(function(b){return b.cr49f_bookingid;}).filter(Boolean);
+    setProgress(50,'コンテナ情報を取得中...');
+    var containerInfos=await fetchContainerInfos(bookingGuids,token);
+    setProgress(80,'データを組み立て中...');
+    var scheduleRows=buildScheduleRowsFromD365(bookings,containerInfos);
+    addLog('📊 スケジュールデータ: '+scheduleRows.length+' 行','ok');
+    setProgress(90,'メールマスター確認中...');
+    if(Object.keys(mailMapGlobal).length>0){
+      buildBuyerData(scheduleRows,mailMapGlobal);addLog('✅ 完了 (D365+メールマスター統合)','ok');
+    }else if(autoLoadPromise){
+      window._pendingScheduleRows=scheduleRows;addLog('⟳ E-mailマスター取得完了を待機中...','ok');
+      await autoLoadPromise;
+      if(Object.keys(mailMapGlobal).length>0){buildBuyerData(scheduleRows,mailMapGlobal);window._pendingScheduleRows=null;addLog('✅ 完了 (D365+メールマスター統合)','ok');}
+      else{addLog('⚠️ E-mailマスターの自動取得に失敗しました。手動で選択してください。','warn');}
+    }else{window._pendingScheduleRows=scheduleRows;addLog('⚠️ E-mailマスターExcelを読み込んでください（下のボタン）','warn');}
+    setProgress(100,'');
+    document.getElementById('d365Status').textContent='✅ COMPASSデータ取得完了 ('+scheduleRows.length+'行)';
+    document.getElementById('d365Status').style.color='var(--ok)';
+  }catch(e){
+    showError('D365エラー: '+e.message);addLog('❌ '+e.message,'err');
+    document.getElementById('d365Status').textContent='❌ 取得失敗';
+    document.getElementById('d365Status').style.color='var(--danger)';
+  }finally{hideLoading();if(btn) btn.disabled=false;}
+}
+
+/* ═══════════════════════════════════════════
+   ファイル選択 (スケジュールExcel)
+═══════════════════════════════════════════ */
+async function selectFile(){
+  if(!window.showOpenFilePicker){showError('このブラウザはファイル選択に対応していません。Chrome/Edgeをご使用ください。');return;}
+  try{
+    var handles=await window.showOpenFilePicker({types:[{description:'Excel Files',accept:{
+      'application/vnd.ms-excel.sheet.macroenabled.12':['.xlsm'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'],
+    }}],multiple:false});
+    fileHandle=handles[0];await dbSet('scheduleFile',handles[0]);
+    setFileStatus(handles[0].name,true);await loadFromFile();
+  }catch(e){if(e.name!=='AbortError') showError('ファイル選択エラー: '+e.message);}
+}
+
+function setFileStatus(name,ok){
+  var el=document.getElementById('fileStatus');
+  el.textContent=ok?'📄 '+name+'  ✅ 読み込み済み':'📄 '+name+'  （権限確認中）';
+  el.className=ok?'ok':'';
+}
+
+async function loadFromFile(){
+  showError('');setProgress(0,'');log('');
+  if(!fileHandle){showError('⚠️ ファイルが選択されていません。');return;}
+  try{
+    var perm=await fileHandle.queryPermission({mode:'read'});
+    if(perm!=='granted'){perm=await fileHandle.requestPermission({mode:'read'});if(perm!=='granted'){showError('ファイルへのアクセス権限がありません。');return;}}
+    addLog('✅ '+fileHandle.name+' を読み込み中...','ok');setProgress(20,'Excelを読み込み中...');
+    var file=await fileHandle.getFile();var buf=await file.arrayBuffer();
+    var wb=XLSX.read(new Uint8Array(buf),{type:'array',raw:true});
+    setProgress(50,'データを解析中...');parseEmailMaster(wb);
+    setProgress(100,'完了');document.getElementById('progressWrap').style.display='none';
+  }catch(e){showError('Excelの読み込みに失敗しました。\nエラー: '+e.message);}
+}
+
+/* ═══════════════════════════════════════════
+   E-mailマスター解析
+═══════════════════════════════════════════ */
+function parseEmailMaster(wb,fileNameOverride){
+  var emailSheet=wb.Sheets['E-mail'];
+  if(!emailSheet){showError('「E-mail」シートが見つかりません。');return;}
+  var emailRows=XLSX.utils.sheet_to_json(emailSheet,{defval:null,raw:true});
+  var mailMap={};
+  emailRows.forEach(function(r){
+    var agent=(r['AGENT']||'').toString().trim(),buyer=(r['BUYER']||'').toString().trim();
+    var emails=['E-MAIL1','E-MAIL2','E-MAIL3','E-MAIL4','E-MAIL5','E-MAIL6','E-MAIL7']
+      .map(function(k){return (r[k]||'').toString().trim();}).filter(Boolean);
+    mailMap[agent+'::'+buyer]={to:emails[0]||'',cc:emails.slice(1).join(';'),agent:agent,buyer:buyer};
+  });
+  mailMapGlobal=mailMap;
+  addLog('📧 E-mailマスター: '+emailRows.length+' 件','ok');
+  document.getElementById('emailFileStatus').textContent=
+    '📄 '+(fileNameOverride||(emailFileHandle?emailFileHandle.name:'E-mailマスター'))+'  ✅ 読み込み済み ('+emailRows.length+'件)';
+  if(window._pendingScheduleRows&&window._pendingScheduleRows.length>0){
+    buildBuyerData(window._pendingScheduleRows,mailMapGlobal);
+    addLog('✅ 完了 (D365+メールマスター統合)','ok');window._pendingScheduleRows=null;
   }
 }
 
-// ═══════════════════════════════════════════
-// 日付変換
-// ═══════════════════════════════════════════
-function toJsDate(v) {
-  if (!v) return null;
-  if (v instanceof Date) return v;
-  if (typeof v === 'number') {
-    // Excel serial date
-    const d = new Date(Math.round((v - 25569) * 86400 * 1000));
-    return d;
-  }
-  if (typeof v === 'string' && v.trim()) {
-    const d = new Date(v);
-    return isNaN(d) ? null : d;
-  }
+/* ═══════════════════════════════════════════
+   日付変換
+═══════════════════════════════════════════ */
+function toJsDate(v){
+  if(!v) return null;if(v instanceof Date) return v;
+  if(typeof v==='number') return new Date(Math.round((v-25569)*86400*1000));
+  if(typeof v==='string'&&v.trim()){var d=new Date(v);return isNaN(d)?null:d;}
   return null;
 }
+function excelDateToStr(v){var d=toJsDate(v);if(!d) return '';
+  return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');}
+function dateToYMD(d){if(!d) return '';
+  return d.getFullYear()+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+String(d.getDate()).padStart(2,'0');}
+function todayYMD(){return dateToYMD(new Date()).replace(/\//g,'');}
 
-function excelDateToStr(v) {
-  const d = toJsDate(v);
-  if (!d) return '';
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,'0');
-  const dd = String(d.getDate()).padStart(2,'0');
-  return `${y}/${m}/${dd}`;
+/* ═══════════════════════════════════════════
+   統計・テーブル
+═══════════════════════════════════════════ */
+function renderStats(){
+  document.getElementById('statBuyers').textContent=buyerData.length;
+  document.getElementById('statRows').textContent=buyerData.reduce(function(s,b){return s+b.rows.length;},0);
+  document.getElementById('statMailable').textContent=buyerData.filter(function(b){return b.sendType!=='nomail';}).length;
+  document.getElementById('statNomail').textContent=buyerData.filter(function(b){return b.sendType==='nomail';}).length;
 }
 
-function dateToYMD(d) {
-  if (!d) return '';
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,'0');
-  const dd = String(d.getDate()).padStart(2,'0');
-  return `${y}/${m}/${dd}`;
-}
-
-function todayYMD() {
-  return dateToYMD(new Date()).replace(/\//g,'');
-}
-
-// ═══════════════════════════════════════════
-// 統計
-// ═══════════════════════════════════════════
-function renderStats() {
-  document.getElementById('statBuyers').textContent  = buyerData.length;
-  document.getElementById('statRows').textContent    = buyerData.reduce((s,b)=>s+b.rows.length,0);
-  document.getElementById('statMailable').textContent= buyerData.filter(b=>b.sendType!=='nomail').length;
-  document.getElementById('statNomail').textContent  = buyerData.filter(b=>b.sendType==='nomail').length;
-}
-
-// ═══════════════════════════════════════════
-// テーブル描画
-// ═══════════════════════════════════════════
-function renderTable() {
-  const tbody = document.getElementById('buyerTbody');
-  tbody.innerHTML = '';
-
-  filteredData.forEach((b, idx) => {
-    const tr = document.createElement('tr');
-    tr.dataset.idx = idx;
-
-    const etdRange = (b.etdMin && b.etdMax)
-      ? `${dateToYMD(b.etdMin)} 〜 ${dateToYMD(b.etdMax)}`
-      : '—';
-
-    const typeBadge = {
-      agent:    '<span class="badge badge-agent">Agent</span>',
-      importer: '<span class="badge badge-importer">Importer直送</span>',
-      direct:   '<span class="badge badge-direct">Direct</span>',
-      nomail:   '<span class="badge badge-nomail">送付先なし</span>',
-    }[b.sendType] || '';
-
-    const toDisp = b.emailTo || '<span style="color:var(--danger)">—</span>';
-    const ccDisp = b.emailCC
-      ? b.emailCC.split(';').filter(Boolean).join('<br>')
-      : '—';
-
-    tr.innerHTML = `
-      <td><input type="checkbox" ${b.selected?'checked':''} onchange="toggleRow(${idx},this)"></td>
-      <td><strong>${escHtml(b.buyer)}</strong></td>
-      <td style="color:var(--text2);font-size:11px">${escHtml(b.agent||'—')}</td>
-      <td>${typeBadge}</td>
-      <td class="email-cell" title="${escHtml(b.emailTo)}">${escHtml(b.emailTo||'—')}</td>
-      <td class="email-cell" style="font-size:.68rem" title="${escHtml(b.emailCC)}">${escHtml(b.emailCC ? b.emailCC.split(';').join('\n') : '—')}</td>
-      <td style="text-align:center">${b.rows.length}</td>
-      <td style="font-size:.76rem;white-space:nowrap">${etdRange}</td>
-      <td>
-        <button class="btn btn-ghost" style="font-size:.75rem;padding:5px 10px"
-          onclick="previewOne(${idx})">👁 確認</button>
-        ${b.sendType!=='nomail'
-          ? `<button class="btn btn-ok" style="font-size:.75rem;padding:5px 10px;margin-left:4px"
-              onclick="sendOneGraph(${idx})">📎 送付</button>
-<button class="btn btn-sm btn-ghost" style="font-size:.75rem;padding:5px 10px;margin-left:4px"
-              onclick="sendOneDraft(${idx})">📝 下書き</button>`
-          : ''}
-      </td>
-    `;
+function renderTable(){
+  var tbody=document.getElementById('buyerTbody');tbody.innerHTML='';
+  filteredData.forEach(function(b,idx){
+    var tr=document.createElement('tr');tr.dataset.idx=idx;
+    var etdRange=(b.etdMin&&b.etdMax)?dateToYMD(b.etdMin)+' 〜 '+dateToYMD(b.etdMax):'—';
+    var typeBadge={agent:'<span class="badge badge-agent">Agent</span>',
+      importer:'<span class="badge badge-importer">Importer直送</span>',
+      direct:'<span class="badge badge-direct">Direct</span>',
+      nomail:'<span class="badge badge-nomail">送付先なし</span>'}[b.sendType]||'';
+    tr.innerHTML='<td><input type="checkbox" '+(b.selected?'checked':'')+' onchange="toggleRow('+idx+',this)"></td>'+
+      '<td><strong>'+escHtml(b.buyer)+'</strong></td>'+
+      '<td style="color:var(--text2);font-size:11px">'+escHtml(b.agent||'—')+'</td>'+
+      '<td>'+typeBadge+'</td>'+
+      '<td class="email-cell" title="'+escHtml(b.emailTo)+'">'+escHtml(b.emailTo||'—')+'</td>'+
+      '<td class="email-cell" style="font-size:.68rem" title="'+escHtml(b.emailCC)+'">'+escHtml(b.emailCC?b.emailCC.split(';').join('\n'):'—')+'</td>'+
+      '<td style="text-align:center">'+b.rows.length+'</td>'+
+      '<td style="font-size:.76rem;white-space:nowrap">'+etdRange+'</td>'+
+      '<td><button class="btn btn-ghost" style="font-size:.75rem;padding:5px 10px" onclick="previewOne('+idx+')">👁 確認</button>'+
+      (b.sendType!=='nomail'?'<button class="btn btn-ok" style="font-size:.75rem;padding:5px 10px;margin-left:4px" onclick="sendOneGraph('+idx+')">📎 送付</button>'+
+        '<button class="btn btn-ghost" style="font-size:.75rem;padding:5px 10px;margin-left:4px" onclick="sendOneDraft('+idx+')">📝 下書き</button>':'')+
+      '</td>';
     tbody.appendChild(tr);
   });
-
   updateSelCount();
 }
 
-function escHtml(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ═══════════════════════════════════════════
-// 選択系
-// ═══════════════════════════════════════════
-function toggleAll(chk) {
-  filteredData.forEach((b, idx) => {
-    b.selected = chk.checked;
-  });
-  // buyerDataの選択状態も同期
-  buyerData.forEach(b => {
-    if (filteredData.includes(b)) b.selected = chk.checked;
-  });
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function toggleAll(chk){filteredData.forEach(function(b){b.selected=chk.checked;});buyerData.forEach(function(b){if(filteredData.includes(b)) b.selected=chk.checked;});renderTable();}
+function toggleRow(idx,chk){filteredData[idx].selected=chk.checked;updateSelCount();}
+function selectAll(v){filteredData.forEach(function(b){b.selected=v;});buyerData.forEach(function(b){b.selected=v;});renderTable();}
+function selectMailable(){filteredData.forEach(function(b){b.selected=b.sendType!=='nomail';});buyerData.forEach(function(b){b.selected=filteredData.includes(b)?b.selected:false;});renderTable();}
+function updateSelCount(){document.getElementById('selCount').textContent=buyerData.filter(function(b){return b.selected;}).length;}
+function filterTable(){
+  var q=document.getElementById('searchBox').value.toLowerCase();
+  filteredData=q?buyerData.filter(function(b){return b.buyer.toLowerCase().includes(q);}):([...buyerData]);
   renderTable();
 }
 
-function toggleRow(idx, chk) {
-  filteredData[idx].selected = chk.checked;
-  updateSelCount();
-}
-
-function selectAll(v) {
-  filteredData.forEach(b => b.selected = v);
-  buyerData.forEach(b => b.selected = v);
-  renderTable();
-}
-
-function selectMailable() {
-  filteredData.forEach(b => b.selected = b.sendType !== 'nomail');
-  buyerData.forEach(b => b.selected = filteredData.includes(b) ? b.selected : false);
-  renderTable();
-}
-
-function updateSelCount() {
-  const n = buyerData.filter(b=>b.selected).length;
-  document.getElementById('selCount').textContent = n;
-}
-
-// ═══════════════════════════════════════════
-// 検索フィルタ
-// ═══════════════════════════════════════════
-function filterTable() {
-  const q = document.getElementById('searchBox').value.toLowerCase();
-  filteredData = q
-    ? buyerData.filter(b => b.buyer.toLowerCase().includes(q))
-    : [...buyerData];
-  renderTable();
-}
-
-// ═══════════════════════════════════════════
-// Excel 生成 (バイヤー別) - v3 양식
-// ═══════════════════════════════════════════
-function generateExcel(b) {
-  const wb2 = XLSX.utils.book_new();
-  const ws  = {};
-  const enc = (r,c) => XLSX.utils.encode_cell({r,c});
-
-  // ── 색상 / 스타일 ──
-  const NAVY  = '0F2044', LBLUE = 'D6E4F0', HBLUE = '2E75B6';
-  const WHITE = 'FFFFFF', GRAY  = 'F2F2F2', TOTAL = 'BDD7EE';
-
-  const fnt  = (bold=false, color='000000', sz=9) =>
-    ({bold, color:{rgb:color}, sz, name:'Arial'});
-  const fill = c => ({patternType:'solid', fgColor:{rgb:c}});
-  const aln  = (h='center',v='center',wrap=false) =>
-    ({horizontal:h, vertical:v, wrapText:wrap});
-  const bdr  = (style='thin', color='9DC3E6') => {
-    const s={style,color:{rgb:color}};
-    return {top:s,bottom:s,left:s,right:s};
-  };
-  const bdrMed = () => { const s={style:'medium',color:{rgb:NAVY}};
-    return {top:s,bottom:s,left:s,right:s}; };
-
-  const setC = (addr,v,s={}) => {
-    ws[addr] = {v, t: typeof v==='number'?'n':'s', s};
-  };
-  const setN = (addr,v,s={}) => {
-    ws[addr] = {v: Number(v)||0, t:'n', s};
-  };
-
-  // ── CO_NO × Item 조합 수집 (nwMap から全コンボ収集、CO_NO→GRADE 昇順ソート) ──
-  const combos = [];
-  const seen   = new Set();
-  b.rows.forEach(r => {
-    Object.keys(r.nwMap).forEach(key => {
-      if (!seen.has(key)) {
-        seen.add(key);
-        const [co, item, priceStr] = key.split('||');
-        combos.push({
-          co,
-          item,
-          price: Number(priceStr),
-          qty:   r.qtyMap[key] || 0,
-          po:    r.poNo || '',
-        });
-      }
+/* ═══════════════════════════════════════════
+   Excel 生成
+═══════════════════════════════════════════ */
+function generateExcel(b){
+  var wb2=XLSX.utils.book_new(),ws={};
+  var enc=function(r,c){return XLSX.utils.encode_cell({r:r,c:c});};
+  var NAVY='0F2044',LBLUE='D6E4F0',HBLUE='2E75B6',WHITE='FFFFFF',GRAY='F2F2F2',TOTAL='BDD7EE';
+  var fnt=function(bold,color,sz){return {bold:bold,color:{rgb:color||'000000'},sz:sz||9,name:'Arial'};};
+  var fill=function(c){return {patternType:'solid',fgColor:{rgb:c}};};
+  var aln=function(h,v,wrap){return {horizontal:h||'center',vertical:v||'center',wrapText:!!wrap};};
+  var bdr=function(style,color){var s={style:style||'thin',color:{rgb:color||'9DC3E6'}};return {top:s,bottom:s,left:s,right:s};};
+  var bdrMed=function(){var s={style:'medium',color:{rgb:NAVY}};return {top:s,bottom:s,left:s,right:s};};
+  var setC=function(addr,v,s){ws[addr]={v:v,t:typeof v==='number'?'n':'s',s:s||{}};};
+  var setN=function(addr,v,s){ws[addr]={v:Number(v)||0,t:'n',s:s||{}};};
+  var combos=[],seen=new Set();
+  b.rows.forEach(function(r){Object.keys(r.nwMap).forEach(function(key){
+    if(!seen.has(key)){seen.add(key);var p=key.split('||');combos.push({co:p[0],item:p[1],price:Number(p[2]),qty:r.qtyMap[key]||0,po:r.poNo||''});}
+  });});
+  combos.sort(function(a,b2){return a.co.localeCompare(b2.co)||a.item.localeCompare(b2.item)||a.price-b2.price;});
+  var N_FIXED=10;
+  setC(enc(0,0),'Buyer',{font:fnt(true,NAVY,9),alignment:aln('left')});
+  setC(enc(0,1),b.buyer,{font:fnt(true,NAVY,11),alignment:aln('left')});
+  for(var r=1;r<=4;r++){for(var c=0;c<9;c++){ws[enc(r,c)]={v:'',t:'s',s:{fill:fill(LBLUE)}};}}
+  setC(enc(1,0),b.buyer,{font:fnt(true,NAVY,22),fill:fill(LBLUE),alignment:aln('center','center')});
+  ['CO_NO','PO_NO','GRADE','U/P'].forEach(function(lbl,bi){
+    var row=1+bi;
+    setC(enc(row,9),lbl,{font:fnt(true,WHITE,8),fill:fill(HBLUE),alignment:aln('center'),border:bdr()});
+    combos.forEach(function(combo,ci){
+      var v=bi===0?combo.co:bi===1?combo.po:bi===2?combo.item:combo.price;
+      var col=N_FIXED+ci;
+      if(bi===3){setN(enc(row,col),v,{font:fnt(false,NAVY,8),fill:fill(LBLUE),alignment:aln('center'),border:bdr(),numFmt:'#,##0'});}
+      else{setC(enc(row,col),String(v||''),{font:fnt(bi===0,NAVY,8),fill:fill(LBLUE),alignment:aln('center'),border:bdr()});}
     });
   });
-  combos.sort((a, b) =>
-    a.co.localeCompare(b.co) || a.item.localeCompare(b.item) || a.price - b.price
-  );
+  var HDR_ROW=5;
+  ['BL DATE','ETA','Invoice No.','Carrier','Vessel','Booking No.','BL No.','POL','POD','Container'].forEach(function(h,i){
+    setC(enc(HDR_ROW,i),h,{font:fnt(true,WHITE,9),fill:fill(NAVY),alignment:aln('center','center',true),border:bdr()});
+  });
+  combos.forEach(function(combo,ci){setC(enc(HDR_ROW,N_FIXED+ci),combo.qty+' MT',{font:fnt(true,WHITE,8),fill:fill(NAVY),alignment:aln('center'),border:bdr()});});
+  var DATA_START=6;
+  b.rows.forEach(function(r,ri){
+    var row=DATA_START+ri,bg=ri%2===0?WHITE:GRAY;
+    [r.blDate,r.eta,r.invoiceNo,r.carrier,r.vessel,r.bookingNo,r.blNo||'',r.pol,r.pod,r.container].forEach(function(v,ci){
+      setC(enc(row,ci),String(v||''),{font:fnt(ci===0,'000000',8),fill:fill(bg),alignment:aln('center'),border:bdr()});
+    });
+    combos.forEach(function(combo,ci){
+      var col=N_FIXED+ci,key=combo.co+'||'+combo.item+'||'+combo.price,nw=r.nwMap[key];
+      if(nw){setN(enc(row,col),Math.round(Number(nw)*100)/100,{font:fnt(false,'000000',8),fill:fill(bg),alignment:aln('right'),border:bdr(),numFmt:'#,##0.00'});}
+      else{ws[enc(row,col)]={v:'',t:'s',s:{fill:fill(bg),border:bdr()}};}
+    });
+  });
+  var TOTAL_ROW=DATA_START+b.rows.length;
+  for(var c2=0;c2<N_FIXED;c2++){ws[enc(TOTAL_ROW,c2)]={v:c2===0?'Total':'',t:'s',s:{font:fnt(true,NAVY,9),fill:fill(TOTAL),alignment:aln(c2===0?'center':'left'),border:bdrMed()}};}
+  combos.forEach(function(combo,ci){
+    var key=combo.co+'||'+combo.item+'||'+combo.price;
+    var total=b.rows.reduce(function(sum,r){return sum+(Number(r.nwMap[key])||0);},0);
+    setN(enc(TOTAL_ROW,N_FIXED+ci),Math.round(total*100)/100,{font:fnt(true,NAVY,9),fill:fill(TOTAL),alignment:aln('right'),border:bdrMed(),numFmt:'#,##0.00'});
+  });
+  ws['!merges']=[{s:{r:0,c:1},e:{r:0,c:5}},{s:{r:1,c:0},e:{r:4,c:8}},{s:{r:TOTAL_ROW,c:0},e:{r:TOTAL_ROW,c:N_FIXED-1}}];
+  ws['!cols']=[...[11,11,14,10,24,15,18,9,10,13].map(function(w){return {wch:w};}), ...combos.map(function(){return {wch:10};})];
+  ws['!rows']=Array.from({length:TOTAL_ROW+1},function(_,i){
+    if(i>=1&&i<=4) return {hpt:18};if(i===HDR_ROW) return {hpt:20};if(i===TOTAL_ROW) return {hpt:18};return {hpt:15};
+  });
+  ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:TOTAL_ROW,c:N_FIXED+combos.length-1}});
+  ws['!pageSetup']={orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0};
+  XLSX.utils.book_append_sheet(wb2,ws,'Shipping Schedule');
+  return XLSX.write(wb2,{bookType:'xlsx',type:'array',cellStyles:true});
+}
 
-  const N_FIXED = 10; // A~J: BL DATE ETA Invoice Carrier Vessel BookingNo BLNo POL POD Container
-  const lastCol = N_FIXED + combos.length - 1; // 0-indexed
+/* ═══════════════════════════════════════════
+   mailto / 送付
+═══════════════════════════════════════════ */
+function buildMailto(b){
+  var ymd=todayYMD();
+  var subject='[LEENEAR AutoSend] '+b.buyer+' - Shipping Schedule '+ymd;
+  var body='Dear Sir/Madam,\r\n\r\nPlease kindly find the latest shipping schedule for "'+b.buyer+'"\r\n\r\nThanks,\r\nBest regards,';
+  var cc=[b.emailCC,'rcp@leenearcorp.com'].flatMap(function(s){return (s||'').split(';');})
+    .filter(Boolean).filter(function(v,i,a){return a.indexOf(v)===i;}).join(';');
+  return 'mailto:'+encodeURIComponent(b.emailTo)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body)+(cc?'&cc='+encodeURIComponent(cc):'');
+}
 
-  // ── ROW 0: Buyer 라벨 ──
-  setC(enc(0,0), 'Buyer', {font:fnt(true,NAVY,9), alignment:aln('left')});
-  setC(enc(0,1), b.buyer, {font:fnt(true,NAVY,11), alignment:aln('left')});
+function downloadExcel(b){
+  var data=generateExcel(b);
+  var blob=new Blob([data],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  var url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download='Shipping Schedule_'+b.buyer+'_'+todayYMD()+'.xlsx';a.click();
+  setTimeout(function(){URL.revokeObjectURL(url);},5000);
+}
 
-  // ── ROW 1~4: 좌측 타이틀(ASPEX대형 A1:I4) + 우측 계약블록(J1:J4 라벨, K1~데이터) ──
-  // 좌측: A1:I4 병합 → 바이어명 대형
-  for (let r=1;r<=4;r++) {
-    for (let c=0;c<9;c++) {
-      ws[enc(r,c)] = {v:'', t:'s', s:{fill:fill(LBLUE)}};
-    }
+async function sendOne(idx){
+  var b=filteredData[idx];if(!b||b.sendType==='nomail') return;
+  downloadExcel(b);await sleep(400);window.location.href=buildMailto(b);
+  addLog('📤 '+b.buyer+' → Outlook を開きました','ok');
+}
+
+async function sendSelected(){
+  var targets=buyerData.filter(function(b){return b.selected&&b.sendType!=='nomail';});
+  if(!targets.length){alert('送付可能なバイヤーが選択されていません。');return;}
+  document.getElementById('progressWrap').style.display='block';setProgress(0,'');log('');
+  for(var i=0;i<targets.length;i++){
+    var b=targets[i];setProgress(Math.round((i/targets.length)*100),b.buyer+' を処理中...');
+    addLog('📄 '+b.buyer+': Excel生成 → ダウンロード','');downloadExcel(b);await sleep(600);
+    addLog('📤 '+b.buyer+': Outlook 起動','ok');window.location.href=buildMailto(b);await sleep(1500);
   }
-  setC(enc(1,0), b.buyer, {
-    font: fnt(true,NAVY,22),
-    fill: fill(LBLUE),
-    alignment: aln('center','center'),
-  });
-
-  // 우측 계약블록 라벨 (J열=col9)
-  const blockLabels = ['CO_NO','PO_NO','GRADE','U/P'];
-  blockLabels.forEach((lbl, bi) => {
-    const row = 1 + bi;
-    setC(enc(row,9), lbl, {
-      font: fnt(true,WHITE,8),
-      fill: fill(HBLUE),
-      alignment: aln('center'),
-      border: bdr()
-    });
-    combos.forEach((combo, ci) => {
-      let v;
-      if (bi===0)      v = combo.co;
-      else if (bi===1) v = combo.po;  // PO_No (CO_NOと同じ場合もあり、異なる場合もあり)
-      else if (bi===2) v = combo.item;
-      else             v = combo.price;
-      const col = N_FIXED + ci;
-      if (bi===3) {
-        setN(enc(row,col), v, {
-          font: fnt(false,NAVY,8), fill:fill(LBLUE),
-          alignment:aln('center'), border:bdr(), numFmt:'#,##0'
-        });
-      } else {
-        setC(enc(row,col), String(v||''), {
-          font: fnt(bi===0,NAVY,8), fill:fill(LBLUE),
-          alignment:aln('center'), border:bdr()
-        });
-      }
-    });
-  });
-
-  // ── ROW 5: 컬럼 헤더 ──
-  const HDR_ROW = 5;
-  const mainHdrs = ['BL DATE','ETA','Invoice No.','Carrier','Vessel',
-                    'Booking No.','BL No.','POL','POD','Container'];
-  mainHdrs.forEach((h,i) => {
-    setC(enc(HDR_ROW,i), h, {
-      font:fnt(true,WHITE,9), fill:fill(NAVY),
-      alignment:aln('center','center',true), border:bdr()
-    });
-  });
-  combos.forEach((combo, ci) => {
-    setC(enc(HDR_ROW, N_FIXED+ci), `${combo.qty} MT`, {
-      font:fnt(true,WHITE,8), fill:fill(NAVY),
-      alignment:aln('center'), border:bdr()
-    });
-  });
-
-  // ── 데이터 행 ──
-  const DATA_START = 6;
-  b.rows.forEach((r, ri) => {
-    const row = DATA_START + ri;
-    const bg  = ri%2===0 ? WHITE : GRAY;
-    const vals = [r.blDate, r.eta, r.invoiceNo, r.carrier, r.vessel,
-                  r.bookingNo, r.blNo||'', r.pol, r.pod, r.container];
-    vals.forEach((v,ci) => {
-      setC(enc(row,ci), String(v||''), {
-        font: fnt(ci===0, '000000', 8),   // BL DATE 볼드
-        fill: fill(bg),
-        alignment: aln('center'),
-        border: bdr()
-      });
-    });
-    // Net_W를 해당 조합 열에 (nwMap から直接引く)
-    combos.forEach((combo, ci) => {
-      const col = N_FIXED + ci;
-      const key = `${combo.co}||${combo.item}||${combo.price}`;
-      const nw  = r.nwMap[key];
-      if (nw) {
-        setN(enc(row,col), Math.round(Number(nw)*100)/100, {
-          font:fnt(false,'000000',8), fill:fill(bg),
-          alignment:aln('right'), border:bdr(), numFmt:'#,##0.00'
-        });
-      } else {
-        ws[enc(row,col)] = {v:'', t:'s', s:{fill:fill(bg), border:bdr()}};
-      }
-    });
-  });
-
-  // ── TOTAL 행 ──
-  const TOTAL_ROW = DATA_START + b.rows.length;
-  for (let c=0;c<N_FIXED;c++) {
-    ws[enc(TOTAL_ROW,c)] = {v: c===0?'Total':'', t:'s',
-      s:{font:fnt(true,NAVY,9), fill:fill(TOTAL),
-         alignment:aln(c===0?'center':'left'), border:bdrMed()}};
-  }
-  combos.forEach((combo, ci) => {
-    const key = `${combo.co}||${combo.item}||${combo.price}`;
-    const total = b.rows.reduce((sum, r) => sum + (Number(r.nwMap[key]) || 0), 0);
-    setN(enc(TOTAL_ROW, N_FIXED+ci), Math.round(total*100)/100, {
-      font:fnt(true,NAVY,9), fill:fill(TOTAL),
-      alignment:aln('right'), border:bdrMed(), numFmt:'#,##0.00'
-    });
-  });
-
-  // ── 병합 ──
-  const merges = [
-    {s:{r:0,c:1}, e:{r:0,c:5}},                         // Buyer명
-    {s:{r:1,c:0}, e:{r:4,c:8}},                         // 타이틀 A2:I5
-    {s:{r:TOTAL_ROW,c:0}, e:{r:TOTAL_ROW,c:N_FIXED-1}}, // Total
-  ];
-  ws['!merges'] = merges;
-
-  // ── 열 너비 ──
-  const fixedW = [11,11,14,10,24,15,18,9,10,13];
-  ws['!cols'] = [
-    ...fixedW.map(w=>({wch:w})),
-    ...combos.map(()=>({wch:10}))
-  ];
-
-  // ── 행 높이 ──
-  const rowHts = Array.from({length:TOTAL_ROW+1}, (_,i) => {
-    if (i>=1&&i<=4) return {hpt:18};
-    if (i===HDR_ROW) return {hpt:20};
-    if (i===TOTAL_ROW) return {hpt:18};
-    return {hpt:15};
-  });
-  ws['!rows'] = rowHts;
-
-  // ── 印刷設定 ──
-  ws['!ref'] = XLSX.utils.encode_range(
-    {s:{r:0,c:0}, e:{r:TOTAL_ROW, c:N_FIXED+combos.length-1}});
-  ws['!pageSetup'] = {orientation:'landscape', fitToPage:true, fitToWidth:1, fitToHeight:0};
-
-  XLSX.utils.book_append_sheet(wb2, ws, 'Shipping Schedule');
-  return XLSX.write(wb2, {bookType:'xlsx', type:'array', cellStyles:true});
+  setProgress(100,'完了');addLog('✅ '+targets.length+' 件の処理が完了しました','ok');
 }
 
-// ═══════════════════════════════════════════
-// メール送付 (mailto)
-// ═══════════════════════════════════════════
-function buildMailto(b) {
-  const ymd = todayYMD();
-  const subject = `[LEENEAR AutoSend] ${b.buyer} - Shipping Schedule ${ymd}`;
-  const body = `Dear Sir/Madam,\r\n\r\nPlease kindly find the latest shipping schedule for "${b.buyer}"\r\n\r\nThanks,\r\nBest regards,`;
-
-  const cc = [b.emailCC, 'rcp@leenearcorp.com']
-    .flatMap(s => (s||'').split(';'))
-    .filter(Boolean)
-    .filter((v,i,a) => a.indexOf(v) === i)
-    .join(';');
-
-  return `mailto:${encodeURIComponent(b.emailTo)}`
-    + `?subject=${encodeURIComponent(subject)}`
-    + `&body=${encodeURIComponent(body)}`
-    + (cc ? `&cc=${encodeURIComponent(cc)}` : '');
-}
-
-function downloadExcel(b) {
-  const data = generateExcel(b);
-  const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const ymd = todayYMD();
-  a.href = url;
-  a.download = `Shipping Schedule_${b.buyer}_${ymd}.xlsx`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 5000);
-}
-
-async function sendOne(idx) {
-  const b = filteredData[idx];
-  if (!b || b.sendType === 'nomail') return;
-  // Excel ダウンロード
-  downloadExcel(b);
-  await sleep(400);
-  // Outlook mailto 起動
-  window.location.href = buildMailto(b);
-  addLog(`📤 ${b.buyer} → Outlook を開きました`, 'ok');
-}
-
-async function sendSelected() {
-  const targets = buyerData.filter(b => b.selected && b.sendType !== 'nomail');
-  if (!targets.length) { alert('送付可能なバイヤーが選択されていません。'); return; }
-
-  document.getElementById('progressWrap').style.display = 'block';
-  setProgress(0, '');
-  log('');
-
-  for (let i = 0; i < targets.length; i++) {
-    const b = targets[i];
-    setProgress(Math.round((i / targets.length) * 100), `${b.buyer} を処理中...`);
-    addLog(`📄 ${b.buyer}: Excel生成 → ダウンロード`, '');
-    downloadExcel(b);
-    await sleep(600);
-    addLog(`📤 ${b.buyer}: Outlook 起動`, 'ok');
-    window.location.href = buildMailto(b);
-    await sleep(1500);
-  }
-  setProgress(100, '完了');
-  addLog(`✅ ${targets.length} 件の処理が完了しました`, 'ok');
-}
-
-// ═══════════════════════════════════════════
-// プレビュー Modal
-// ═══════════════════════════════════════════
-function previewOne(idx) {
-  const b = filteredData[idx];
-  currentModalBuyer = b;
-  const ymd = todayYMD();
-  const subject = `[LEENEAR AutoSend] ${b.buyer} - Shipping Schedule ${ymd}`;
-  const cc = [b.emailCC, 'rcp@leenearcorp.com']
-    .flatMap(s => (s||'').split(';')).filter(Boolean)
-    .filter((v,i,a)=>a.indexOf(v)===i).join('、');
-
-  document.getElementById('modalTitle').textContent = `メール確認 — ${b.buyer}`;
-
-  const rows_preview = b.rows.slice(0,5).map(r =>
-    `<tr><td>${r.etd}</td><td>${r.eta}</td><td>${escHtml(r.invoiceNo)}</td><td>${escHtml(r.carrier)}</td><td>${escHtml(r.vessel)}</td><td>${escHtml(r.pol)}</td><td>${escHtml(r.pod)}</td><td>${escHtml(r.container)}</td></tr>`
-  ).join('');
-  const more = b.rows.length > 5 ? `<tr><td colspan="8" style="text-align:center;color:var(--muted);font-size:.75rem">... 他 ${b.rows.length-5} 行</td></tr>` : '';
-
-  // Contract / PO No. 組み立て (モーダル用)
-  const modalContracts = [];
-  const modalPoNos     = [];
-  const modalSeen = new Set();
-  let modalPoSameAsCo = true;
-  b.rows.forEach(r => {
-    const co = (r.coNo||'').toString().trim();
-    const po = (r.poNo||'').toString().trim();
-    if (co && !modalSeen.has(co)) { modalSeen.add(co); modalContracts.push(co); }
-    if (po && po !== co && !modalPoNos.includes(po)) modalPoNos.push(po);
-    if (po && po !== co) modalPoSameAsCo = false;
+/* ═══════════════════════════════════════════
+   プレビュー Modal
+═══════════════════════════════════════════ */
+function previewOne(idx){
+  var b=filteredData[idx];currentModalBuyer=b;
+  var ymd=todayYMD();
+  var subject='[LEENEAR AutoSend] '+b.buyer+' - Shipping Schedule '+ymd;
+  var cc=[b.emailCC,'rcp@leenearcorp.com'].flatMap(function(s){return (s||'').split(';');})
+    .filter(Boolean).filter(function(v,i,a){return a.indexOf(v)===i;}).join('、');
+  document.getElementById('modalTitle').textContent='メール確認 — '+b.buyer;
+  var rows_preview=b.rows.slice(0,5).map(function(r){
+    return '<tr><td>'+r.etd+'</td><td>'+r.eta+'</td><td>'+escHtml(r.invoiceNo)+'</td><td>'+escHtml(r.carrier)+'</td><td>'+escHtml(r.vessel)+'</td><td>'+escHtml(r.pol)+'</td><td>'+escHtml(r.pod)+'</td><td>'+escHtml(r.container)+'</td></tr>';
+  }).join('');
+  var more=b.rows.length>5?'<tr><td colspan="8" style="text-align:center;color:var(--text3);font-size:.75rem">... 他 '+(b.rows.length-5)+' 行</td></tr>':'';
+  var mc=[],mp=[],ms=new Set(),mpsa=true;
+  b.rows.forEach(function(r){
+    var co=(r.coNo||'').toString().trim(),po=(r.poNo||'').toString().trim();
+    if(co&&!ms.has(co)){ms.add(co);mc.push(co);}if(po&&po!==co&&!mp.includes(po)) mp.push(po);if(po&&po!==co) mpsa=false;
   });
-  let modalContractLine = '';
-  let modalPoLine = '';
-  if (modalPoSameAsCo || modalPoNos.length === 0) {
-    modalContractLine = modalContracts.length
-      ? `  Contract / PO No. : ${modalContracts.join(' / ')}` : '';
-  } else {
-    modalContractLine = modalContracts.length
-      ? `  Contract          : ${modalContracts.join(' / ')}` : '';
-    modalPoLine = modalPoNos.length
-      ? `  PO No.            : ${modalPoNos.join(' / ')}` : '';
-  }
-
-  const previewBody = [
-    `Dear Sir/Madam,`,
-    ``,
-    `Please kindly find the attached shipping schedule.`,
-    ``,
-    ...[modalContractLine, modalPoLine, `  Buyer             : ${b.buyer}`].filter(Boolean),
-    ``,
-    `Please feel free to contact us if you have any questions.`,
-    ``,
-    `Thanks,`,
-    `Best regards,`,
-    ``,
-    `LEENEAR CORPORATION`,
-    `TEL: +81-3-3528-9850  FAX: +81-3-3528-9851`,
-    `E-mail: rcp@leenearcorp.com`,
-    `Web: www.leenearcorp.com`,
-    `─────────────────────────────────────────`,
-    `✦ Powered by LEENAI Automation System`,
-  ].join('\n');
-
-  document.getElementById('modalBody').innerHTML = `
-    <div class="modal-field"><label>TO</label><div class="val">${escHtml(b.emailTo||'（送付先なし）')}</div></div>
-    <div class="modal-field"><label>CC</label><div class="val">${escHtml(cc||'—')}</div></div>
-    <div class="modal-field"><label>件名</label><div class="val">${escHtml(subject)}</div></div>
-    <div class="modal-field"><label>本文</label>
-      <div class="val" style="white-space:pre-line;font-size:.8rem">${escHtml(previewBody)}</div>
-    </div>
-    <div class="modal-field"><label>添付ファイル</label>
-      <div class="val">📎 Shipping Schedule_${escHtml(b.buyer)}_${ymd}.xlsx　（${b.rows.length}行）</div>
-    </div>
-    <div class="modal-field"><label>スケジュール (ETD昇順・先頭5件)</label>
-      <div style="overflow-x:auto">
-      <table style="width:100%;font-size:.72rem;border-collapse:collapse">
-        <thead style="background:var(--surface3);color:var(--text2)">
-          <tr><th style="padding:5px 8px">ETD</th><th>ETA</th><th>Invoice</th><th>Carrier</th><th>Vessel</th><th>POL</th><th>POD</th><th>Container</th></tr>
-        </thead>
-        <tbody>${rows_preview}${more}</tbody>
-      </table>
-      </div>
-    </div>
-  `;
-
-  const sendBtn   = document.getElementById('modalSendBtn');
-  const mailtoBtn = document.getElementById('modalMailtoBtn');
-  if (b.sendType === 'nomail') {
-    sendBtn.disabled = true;
-    sendBtn.textContent = '送付先なし';
-    mailtoBtn.style.display = 'none';
-  } else {
-    sendBtn.disabled = false;
-    sendBtn.textContent = '📎 送付';
-    sendBtn.onclick = () => { closeModalDirect(); sendOneGraph(idx); };
-    mailtoBtn.onclick = () => { closeModalDirect(); sendOne(idx); };
-  }
-
+  var mcl='',mpl='';
+  if(mpsa||mp.length===0){mcl=mc.length?'  Contract / PO No. : '+mc.join(' / '):''}
+  else{mcl=mc.length?'  Contract          : '+mc.join(' / '):'';mpl=mp.length?'  PO No.            : '+mp.join(' / '):'';}
+  var previewBody=['Dear Sir/Madam,','','Please kindly find the attached shipping schedule.','',
+    ...[mcl,mpl,'  Buyer             : '+b.buyer].filter(Boolean),
+    '','Please feel free to contact us if you have any questions.','','Thanks,','Best regards,','',
+    'LEENEAR CORPORATION','TEL: +81-3-3528-9850  FAX: +81-3-3528-9851',
+    'E-mail: rcp@leenearcorp.com','Web: www.leenearcorp.com',
+    '─────────────────────────────────────────','✦ Powered by LEENAI Automation System'].join('\n');
+  document.getElementById('modalBody').innerHTML=
+    '<div class="modal-field"><label>TO</label><div class="val">'+escHtml(b.emailTo||'（送付先なし）')+'</div></div>'+
+    '<div class="modal-field"><label>CC</label><div class="val">'+escHtml(cc||'—')+'</div></div>'+
+    '<div class="modal-field"><label>件名</label><div class="val">'+escHtml(subject)+'</div></div>'+
+    '<div class="modal-field"><label>本文</label><div class="val" style="white-space:pre-line;font-size:.8rem">'+escHtml(previewBody)+'</div></div>'+
+    '<div class="modal-field"><label>添付ファイル</label><div class="val">📎 Shipping Schedule_'+escHtml(b.buyer)+'_'+ymd+'.xlsx　（'+b.rows.length+'行）</div></div>'+
+    '<div class="modal-field"><label>スケジュール (ETD昇順・先頭5件)</label><div style="overflow-x:auto">'+
+    '<table style="width:100%;font-size:.72rem;border-collapse:collapse">'+
+    '<thead style="background:var(--frame);color:var(--text)"><tr><th style="padding:5px 8px">ETD</th><th>ETA</th><th>Invoice</th><th>Carrier</th><th>Vessel</th><th>POL</th><th>POD</th><th>Container</th></tr></thead>'+
+    '<tbody>'+rows_preview+more+'</tbody></table></div></div>';
+  var sendBtn=document.getElementById('modalSendBtn'),mailtoBtn=document.getElementById('modalMailtoBtn');
+  if(b.sendType==='nomail'){sendBtn.disabled=true;sendBtn.textContent='送付先なし';mailtoBtn.style.display='none';}
+  else{sendBtn.disabled=false;sendBtn.textContent='📎 送付';
+    sendBtn.onclick=function(){closeModalDirect();sendOneGraph(idx);};
+    mailtoBtn.onclick=function(){closeModalDirect();sendOne(idx);};}
   document.getElementById('modalOverlay').classList.add('open');
 }
 
-function previewSelected() {
-  const targets = buyerData.filter(b => b.selected);
-  if (!targets.length) { alert('バイヤーを選択してください。'); return; }
-  // 最初の1件をプレビュー
-  const idx = filteredData.indexOf(targets[0]);
-  if (idx >= 0) previewOne(idx);
+function previewSelected(){
+  var targets=buyerData.filter(function(b){return b.selected;});
+  if(!targets.length){alert('バイヤーを選択してください。');return;}
+  var idx=filteredData.indexOf(targets[0]);if(idx>=0) previewOne(idx);
 }
+function closeModal(e){if(e.target===document.getElementById('modalOverlay')) closeModalDirect();}
+function closeModalDirect(){document.getElementById('modalOverlay').classList.remove('open');}
 
-function closeModal(e) {
-  if (e.target === document.getElementById('modalOverlay')) closeModalDirect();
+/* ═══════════════════════════════════════════
+   ユーティリティ
+═══════════════════════════════════════════ */
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function showError(msg){var el=document.getElementById('errorMsg');if(msg){el.textContent=msg;el.style.display='block';}else{el.style.display='none';}}
+var logLines=[];
+function log(msg){logLines=[];document.getElementById('progressLog').innerHTML='';}
+function addLog(msg,cls){
+  logLines.push({msg:msg,cls:cls});
+  var el=document.getElementById('progressLog');
+  el.innerHTML+='<div class="'+(cls?'log-'+cls:'')+'">'+escHtml(msg)+'</div>';
+  el.scrollTop=el.scrollHeight;
+  document.getElementById('progressWrap').style.display='block';
 }
-function closeModalDirect() {
-  document.getElementById('modalOverlay').classList.remove('open');
-}
-
-// ═══════════════════════════════════════════
-// ユーティリティ
-// ═══════════════════════════════════════════
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-function showError(msg) {
-  const el = document.getElementById('errorMsg');
-  if (msg) { el.textContent = msg; el.style.display = 'block'; }
-  else { el.style.display = 'none'; }
-}
-
-let logLines = [];
-function log(msg) { logLines = []; document.getElementById('progressLog').innerHTML = ''; }
-function addLog(msg, cls='') {
-  logLines.push({ msg, cls });
-  const el = document.getElementById('progressLog');
-  el.innerHTML += `<div class="${cls?'log-'+cls:''}">${escHtml(msg)}</div>`;
-  el.scrollTop = el.scrollHeight;
-  document.getElementById('progressWrap').style.display = 'block';
-}
-
-function setProgress(pct, msg) {
-  document.getElementById('progressBar').style.width = pct + '%';
-  if (msg) addLog(msg);
-}
-
-// ── テーマ切替 ──────────────────────────────
-function updateThemeBtn(theme) {
-  const btn = document.getElementById('themeToggleBtn');
-  if (!btn) return;
-  const labels = { dark: '🌙 ダーク', light: '☀️ ライト', leenai: '🌿 LEENAI', focus: '🎯 FOCUS' };
-  btn.textContent = labels[theme] || '🌙 ダーク';
-}
-function toggleTheme() {
-  const html = document.documentElement;
-  const current = html.getAttribute('data-theme') || 'leenai';
-  const order = ['dark', 'light', 'leenai', 'focus'];
-  const next = order[(order.indexOf(current) + 1) % order.length];
-  html.setAttribute('data-theme', next);
-  localStorage.setItem('leenai_theme', next);
-  updateThemeBtn(next);
-}
-// 前回テーマ復元
-(function() {
-  const saved = localStorage.getItem('leenai_theme') || 'leenai';
-  document.documentElement.setAttribute('data-theme', saved);
-  document.addEventListener('DOMContentLoaded', async () => {
-    updateThemeBtn(saved);
-    await tryAutoLogin(); // 자동 로그인 시도
-  });
-})();
-
-// ── ローディングオーバーレイ ────────────────
-function showLoading(msg = 'データ取得中...') {
-  document.getElementById('loadingMsg').textContent = msg;
-  document.getElementById('loadingOverlay').classList.add('show');
-}
-function hideLoading() {
-  document.getElementById('loadingOverlay').classList.remove('show');
-}
+function setProgress(pct,msg){document.getElementById('progressBar').style.width=pct+'%';if(msg) addLog(msg);}
 </script>
-
-<div style="text-align:center;font-size:10px;color:var(--text3);padding:18px 0 24px;letter-spacing:0.4px;">
-  ✦ Powered by LEENAI Automation System
-</div>
-
 </body>
 </html>
