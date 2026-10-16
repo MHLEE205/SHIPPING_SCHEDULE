@@ -187,7 +187,7 @@ function startTool(){
 LEENAI.init({
   sys:         'B-02',
   name:        '出荷スケジュール 送付ツール',
-  version:     '4.2',
+  version:     '4.3',
   date:        '2026-10-16',
   desc:        'COMPASSデータと送付先マスターから出荷スケジュールを一括送付します',
   onReady:     startTool,
@@ -247,7 +247,7 @@ async function loadSalesMailMaster(){
 ═══════════════════════════════════════════ */
 async function sendMailGraph(b){
   var grTok=await LEENAI.auth.token('graph');
-  if(!grTok){alert('Outlookへの接続がありません。再ログインしてください。');return false;}
+  if(!grTok) throw new Error('Outlookへの接続がありません。再ログインしてください。');
   var ymd=todayYMD();
   var subject='[LEENEAR AutoSend] '+b.buyer+' - Shipping Schedule '+ymd;
   var contracts=[],poNos=[],seen=new Set(),poSameAsCo=true;
@@ -292,7 +292,7 @@ async function sendMailGraph(b){
 ═══════════════════════════════════════════ */
 async function sendMailDraft(b){
   var grTok=await LEENAI.auth.token('graph');
-  if(!grTok){alert('Outlookへの接続がありません。再ログインしてください。');return false;}
+  if(!grTok) throw new Error('Outlookへの接続がありません。再ログインしてください。');
   var ymd=todayYMD();
   var subject='[LEENEAR AutoSend] '+b.buyer+' - Shipping Schedule '+ymd;
   var contracts=[],poNos=[],seen=new Set(),poSameAsCo=true;
@@ -729,7 +729,7 @@ function previewOne(idx){
     .filter(Boolean).filter(function(v,i,a){return a.indexOf(v)===i;}).join('、');
   document.getElementById('modalTitle').textContent='メール確認 — '+b.buyer;
   var rows_preview=b.rows.slice(0,5).map(function(r){
-    return '<tr><td>'+r.etd+'</td><td>'+r.eta+'</td><td>'+escHtml(r.invoiceNo)+'</td><td>'+escHtml(r.carrier)+'</td><td>'+escHtml(r.vessel)+'</td><td>'+escHtml(r.pol)+'</td><td>'+escHtml(r.pod)+'</td><td>'+escHtml(r.container)+'</td></tr>';
+    return '<tr><td>'+escHtml(r.blDate)+'</td><td>'+escHtml(r.eta)+'</td><td>'+escHtml(r.invoiceNo)+'</td><td>'+escHtml(r.carrier)+'</td><td>'+escHtml(r.vessel)+'</td><td>'+escHtml(r.pol)+'</td><td>'+escHtml(r.pod)+'</td><td>'+escHtml(r.container)+'</td></tr>';
   }).join('');
   var more=b.rows.length>5?'<tr><td colspan="8" style="text-align:center;color:var(--text3);font-size:.75rem">... 他 '+(b.rows.length-5)+' 行</td></tr>':'';
   var mc=[],mp=[],ms=new Set(),mpsa=true;
@@ -752,9 +752,9 @@ function previewOne(idx){
     '<div class="modal-field"><label>件名</label><div class="val">'+escHtml(subject)+'</div></div>'+
     '<div class="modal-field"><label>本文</label><div class="val" style="white-space:pre-line;font-size:.8rem">'+escHtml(previewBody)+'</div></div>'+
     '<div class="modal-field"><label>添付ファイル</label><div class="val">📎 Shipping Schedule_'+escHtml(b.buyer)+'_'+ymd+'.xlsx　（'+b.rows.length+'行）</div></div>'+
-    '<div class="modal-field"><label>スケジュール (ETD昇順・先頭5件)</label><div style="overflow-x:auto">'+
+    '<div class="modal-field"><label>スケジュール (BL DATE昇順・先頭5件)</label><div style="overflow-x:auto">'+
     '<table style="width:100%;font-size:.72rem;border-collapse:collapse">'+
-    '<thead style="background:var(--frame);color:var(--text)"><tr><th style="padding:5px 8px">ETD</th><th>ETA</th><th>Invoice</th><th>Carrier</th><th>Vessel</th><th>POL</th><th>POD</th><th>Container</th></tr></thead>'+
+    '<thead style="background:var(--frame);color:var(--text)"><tr><th style="padding:5px 8px">BL DATE</th><th>ETA</th><th>Invoice</th><th>Carrier</th><th>Vessel</th><th>POL</th><th>POD</th><th>Container</th></tr></thead>'+
     '<tbody>'+rows_preview+more+'</tbody></table></div></div>';
   var sendBtn=document.getElementById('modalSendBtn'),mailtoBtn=document.getElementById('modalMailtoBtn');
   if(b.sendType==='nomail'){sendBtn.disabled=true;sendBtn.textContent='送付先なし';mailtoBtn.style.display='none';}
