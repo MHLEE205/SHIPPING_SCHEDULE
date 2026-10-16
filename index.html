@@ -87,12 +87,7 @@ tbody td:first-child{text-align:center;}
           ⟳ ログイン後に自動取得します
         </div>
       </div>
-      <div class="folder-row" style="margin-top:6px">
-        <button class="btn btn-ghost" onclick="selectEmailFile()">📄 手動選択</button>
-        <div id="emailFileStatus" style="font-size:13px;color:var(--text2)">
-          🔄 ログイン後にSharePointから自動取得します
-        </div>
-      </div>
+      <div id="mailMasterStatus" style="font-size:13px;color:var(--text2);margin-top:6px">⟳ ログイン後に送付先マスターを取得します</div>
       <div id="errorMsg"></div>
       <div id="progressWrap">
         <div class="progress-bar-outer"><div class="progress-bar-inner" id="progressBar" style="width:0%"></div></div>
@@ -164,8 +159,6 @@ tbody td:first-child{text-align:center;}
 </div><!-- /app -->
 
 <script>
-var FS_DB = 'leenai_shipping_schedule_v1';
-
 /* ── D365 / COMPASS ── */
 var D365 = {
   orgUrl:  'https://orgde512c6f.crm7.dynamics.com',
@@ -173,15 +166,12 @@ var D365 = {
   scope:   'https://orgde512c6f.crm7.dynamics.com/user_impersonation offline_access',
 };
 
-/* ── SharePoint ── */
-var SP_DRIVE_ID        = 'b!ZK58_9YllU-vETQD3Xz0TbOInXbVCXJHnQ2280KJBArFLeM_18EgRbSeoO-TW__U';
-var SP_EMAIL_FILE_PATH = '古紙/-. AI 活用/Z-01 -LEENAI-SCHEDULE/Shipping Schedule(E-mail ADD).xlsm';
-var autoLoadPromise = null;
-var mailMapGlobal   = {};
-var emailFileHandle = null;
+/* ── 統合の材料 (null = 未到着) ── */
+var scheduleRowsGlobal = null;   // ① COMPASS 結果
+var mailMapGlobal      = null;   // ② 送付先 — マスター取得失敗時は {} (全員 送付先なし)
+var mailMasterFailed   = false;
 
 /* ── 状態 ── */
-var fileHandle        = null;
 var buyerData         = [];
 var filteredData      = [];
 var currentModalBuyer = null;
@@ -190,27 +180,16 @@ var currentModalBuyer = null;
    LEENAI 初期化
 ═══════════════════════════════════════════ */
 function startTool(){
-  /* ファイルハンドル復元 */
-  (async function(){
-    try{
-      var eh=await dbGet('emailFile');
-      if(eh){
-        var perm=await eh.queryPermission({mode:'read'});
-        if(perm==='granted'){emailFileHandle=eh;await loadEmailMaster();}
-        else{emailFileHandle=eh;document.getElementById('emailFileStatus').textContent='📄 '+eh.name+'  （権限確認中）';}
-      }
-    }catch(e){}
-  })();
-  autoLoadEmailMaster();
+  loadSalesMailMaster();
   loadFromD365();
 }
 
 LEENAI.init({
   sys:         'B-02',
   name:        '出荷スケジュール 送付ツール',
-  version:     '4.1',
+  version:     '4.2',
   date:        '2026-10-16',
-  desc:        'COMPASSデータとE-mailマスターから出荷スケジュールを一括送付します',
+  desc:        'COMPASSデータと送付先マスターから出荷スケジュールを一括送付します',
   onReady:     startTool,
   redirectUri: 'https://mhlee205.github.io/SHIPPING_SCHEDULE/',
 });
@@ -220,102 +199,47 @@ function showLoading(msg){ LEENAI.loading.show(msg||'データ取得中...'); }
 function hideLoading(){ LEENAI.loading.hide(); }
 
 /* ═══════════════════════════════════════════
-   IndexedDB
+   COMPASS + 送付先マスター 統合 (表を描くのはここだけ)
 ═══════════════════════════════════════════ */
-async function openDb(){
-  return new Promise(function(res,rej){
-    var r=indexedDB.open(FS_DB,1);
-    r.onupgradeneeded=function(e){e.target.result.createObjectStore('handles');};
-    r.onsuccess=function(e){res(e.target.result);};
-    r.onerror=function(e){rej(e.target.error);};
-  });
-}
-async function dbGet(key){
-  var db=await openDb();
-  return new Promise(function(res,rej){
-    var r=db.transaction('handles','readonly').objectStore('handles').get(key);
-    r.onsuccess=function(e){res(e.target.result);};
-    r.onerror=function(e){rej(e.target.error);};
-  });
-}
-async function dbSet(key,val){
-  var db=await openDb();
-  return new Promise(function(res,rej){
-    var r=db.transaction('handles','readwrite').objectStore('handles').put(val,key);
-    r.onsuccess=function(){res();};
-    r.onerror=function(e){rej(e.target.error);};
-  });
+function mergeIfReady(){
+  if(scheduleRowsGlobal===null||mailMapGlobal===null) return;   // どちらか未到着なら待つ
+  buildBuyerData(scheduleRowsGlobal,mailMapGlobal);
+  if(mailMasterFailed) addLog('⚠️ 送付先マスターなし — 全バイヤー送付不可で表示','warn');
+  else addLog('✅ 完了 (COMPASS+送付先マスター統合)','ok');
 }
 
 /* ═══════════════════════════════════════════
-   E-mailマスター SharePoint 自動取得
+   送付先マスター (共通マスター sales_mail)
 ═══════════════════════════════════════════ */
-function autoLoadEmailMaster(){
-  var statusEl=document.getElementById('emailFileStatus');
-  autoLoadPromise=(async function(){
-    try{
-      statusEl.textContent='⟳ SharePointからE-mailマスター取得中...';
-      var grTok=await LEENAI.auth.token('graph');
-      if(!grTok){
-        statusEl.textContent='⚠️ 自動取得失敗（Graph接続なし） → 手動で選択してください';
-        addLog('⚠️ [SP] Graph接続なし → スキップ','warn');
-        return;
-      }
-      var encoded=SP_EMAIL_FILE_PATH.split('/').map(encodeURIComponent).join('/');
-      var url='https://graph.microsoft.com/v1.0/drives/'+SP_DRIVE_ID+'/root:/'+encoded+':/content';
-      addLog('📡 [SP] DriveID方式で取得中...','ok');
-      var res=await fetch(url,{headers:{'Authorization':'Bearer '+grTok}});
-      if(!res.ok){
-        var detail='';
-        try{var j=await res.json();detail=j&&j.error&&j.error.message||'';}catch(_){}
-        throw new Error('HTTP '+res.status+(detail?' / '+detail:''));
-      }
-      var buf=await res.arrayBuffer();
-      var wb=XLSX.read(new Uint8Array(buf),{type:'array',raw:true});
-      emailFileHandle=null;
-      parseEmailMaster(wb,'Shipping Schedule(E-mail ADD).xlsm [SP自動取得]');
-      addLog('✅ [SP] E-mailマスター取得成功','ok');
-    }catch(e){
-      statusEl.textContent='⚠️ 自動取得失敗 → 手動で選択してください';
-      addLog('❌ [SP] 自動取得失敗: '+e.message,'err');
-    }finally{
-      autoLoadPromise=null;
-    }
-  })();
+function buildMailMapFromMaster(items){
+  var map={};
+  (items||[]).forEach(function(it){
+    var agent=String(it.agent||'').trim(),buyer=String(it.buyer||'').trim();
+    var to=String(it.to||'').trim();
+    var cc=String(it.cc||'').split(/[;,\/\s]+/).map(function(s){return s.trim();}).filter(Boolean);
+    if(!to) return;   // TO なしの行は無視 (マスター入力検査で本来は入らない)
+    map[agent+'::'+buyer]={to:to,cc:cc.join(';'),agent:agent,buyer:buyer};
+  });
+  return map;
 }
 
-/* ═══════════════════════════════════════════
-   E-mailマスター 手動選択
-═══════════════════════════════════════════ */
-async function selectEmailFile(){
-  if(!window.showOpenFilePicker){showError('このブラウザはファイル選択に対応していません。Chrome/Edgeをご使用ください。');return;}
+async function loadSalesMailMaster(){
+  var statusEl=document.getElementById('mailMasterStatus');
+  statusEl.textContent='⟳ 送付先マスター取得中...';
   try{
-    var handles=await window.showOpenFilePicker({types:[{description:'Excel Files',accept:{
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'],
-      'application/vnd.ms-excel.sheet.macroenabled.12':['.xlsm'],
-    }}],multiple:false});
-    emailFileHandle=handles[0];
-    await dbSet('emailFile',handles[0]);
-    document.getElementById('emailFileStatus').textContent='📄 '+handles[0].name+'  読み込み中...';
-    await loadEmailMaster();
+    var items=await LEENAI.master.get('sales_mail');
+    mailMapGlobal=buildMailMapFromMaster(items);mailMasterFailed=false;
+    var n=Object.keys(mailMapGlobal).length;
+    statusEl.textContent='📋 送付先マスター（販売先メール） ✅ '+n+'件 — 変更はヘッダーの ⚙ マスター設定から';
+    statusEl.style.color='';
+    addLog('📧 送付先マスター: '+n+' 件','ok');
   }catch(e){
-    if(e.name!=='AbortError') showError('ファイル選択エラー: '+e.message);
+    mailMapGlobal={};mailMasterFailed=true;   // 表は出すが全員 送付先なし (送付ボタンなし)
+    statusEl.textContent='❌ 送付先マスターを読み込めません — 送付はできません。⚙ マスター設定を確認してください';
+    statusEl.style.color='var(--danger)';
+    addLog('❌ 送付先マスター取得失敗: '+e.message,'err');
   }
-}
-
-async function loadEmailMaster(){
-  if(!emailFileHandle) return;
-  try{
-    var perm=await emailFileHandle.queryPermission({mode:'read'});
-    if(perm!=='granted') perm=await emailFileHandle.requestPermission({mode:'read'});
-    if(perm!=='granted'){showError('E-mailマスターファイルのアクセス権限がありません。');return;}
-    var file=await emailFileHandle.getFile();
-    var buf=await file.arrayBuffer();
-    var wb=XLSX.read(new Uint8Array(buf),{type:'array',raw:true});
-    parseEmailMaster(wb);
-  }catch(e){
-    showError('E-mailマスター読み込みエラー: '+e.message);
-  }
+  mergeIfReady();
 }
 
 /* ═══════════════════════════════════════════
@@ -611,15 +535,9 @@ async function loadFromD365(){
     setProgress(80,'データを組み立て中...');
     var scheduleRows=buildScheduleRowsFromD365(bookings,containerInfos);
     addLog('📊 スケジュールデータ: '+scheduleRows.length+' 行','ok');
-    setProgress(90,'メールマスター確認中...');
-    if(Object.keys(mailMapGlobal).length>0){
-      buildBuyerData(scheduleRows,mailMapGlobal);addLog('✅ 完了 (D365+メールマスター統合)','ok');
-    }else if(autoLoadPromise){
-      window._pendingScheduleRows=scheduleRows;addLog('⟳ E-mailマスター取得完了を待機中...','ok');
-      await autoLoadPromise;
-      if(Object.keys(mailMapGlobal).length>0){buildBuyerData(scheduleRows,mailMapGlobal);window._pendingScheduleRows=null;addLog('✅ 完了 (D365+メールマスター統合)','ok');}
-      else{addLog('⚠️ E-mailマスターの自動取得に失敗しました。手動で選択してください。','warn');}
-    }else{window._pendingScheduleRows=scheduleRows;addLog('⚠️ E-mailマスターExcelを読み込んでください（下のボタン）','warn');}
+    setProgress(90,'送付先マスターと統合中...');
+    scheduleRowsGlobal=scheduleRows;   // ① 到着
+    mergeIfReady();
     setProgress(100,'');
     document.getElementById('d365Status').textContent='✅ COMPASSデータ取得完了 ('+scheduleRows.length+'行)';
     document.getElementById('d365Status').style.color='var(--ok)';
@@ -628,65 +546,6 @@ async function loadFromD365(){
     document.getElementById('d365Status').textContent='❌ 取得失敗';
     document.getElementById('d365Status').style.color='var(--danger)';
   }finally{hideLoading();if(btn) btn.disabled=false;}
-}
-
-/* ═══════════════════════════════════════════
-   ファイル選択 (スケジュールExcel)
-═══════════════════════════════════════════ */
-async function selectFile(){
-  if(!window.showOpenFilePicker){showError('このブラウザはファイル選択に対応していません。Chrome/Edgeをご使用ください。');return;}
-  try{
-    var handles=await window.showOpenFilePicker({types:[{description:'Excel Files',accept:{
-      'application/vnd.ms-excel.sheet.macroenabled.12':['.xlsm'],
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'],
-    }}],multiple:false});
-    fileHandle=handles[0];await dbSet('scheduleFile',handles[0]);
-    setFileStatus(handles[0].name,true);await loadFromFile();
-  }catch(e){if(e.name!=='AbortError') showError('ファイル選択エラー: '+e.message);}
-}
-
-function setFileStatus(name,ok){
-  var el=document.getElementById('fileStatus');
-  el.textContent=ok?'📄 '+name+'  ✅ 読み込み済み':'📄 '+name+'  （権限確認中）';
-  el.className=ok?'ok':'';
-}
-
-async function loadFromFile(){
-  showError('');setProgress(0,'');log('');
-  if(!fileHandle){showError('⚠️ ファイルが選択されていません。');return;}
-  try{
-    var perm=await fileHandle.queryPermission({mode:'read'});
-    if(perm!=='granted'){perm=await fileHandle.requestPermission({mode:'read'});if(perm!=='granted'){showError('ファイルへのアクセス権限がありません。');return;}}
-    addLog('✅ '+fileHandle.name+' を読み込み中...','ok');setProgress(20,'Excelを読み込み中...');
-    var file=await fileHandle.getFile();var buf=await file.arrayBuffer();
-    var wb=XLSX.read(new Uint8Array(buf),{type:'array',raw:true});
-    setProgress(50,'データを解析中...');parseEmailMaster(wb);
-    setProgress(100,'完了');document.getElementById('progressWrap').style.display='none';
-  }catch(e){showError('Excelの読み込みに失敗しました。\nエラー: '+e.message);}
-}
-
-/* ═══════════════════════════════════════════
-   E-mailマスター解析
-═══════════════════════════════════════════ */
-function parseEmailMaster(wb,fileNameOverride){
-  var emailSheet=wb.Sheets['E-mail'];
-  if(!emailSheet){showError('「E-mail」シートが見つかりません。');return;}
-  var emailRows=XLSX.utils.sheet_to_json(emailSheet,{defval:null,raw:true});
-  var mailMap={};
-  emailRows.forEach(function(r){
-    var agent=(r['AGENT']||'').toString().trim(),buyer=(r['BUYER']||'').toString().trim();
-    var emails=['E-MAIL1','E-MAIL2','E-MAIL3','E-MAIL4','E-MAIL5','E-MAIL6','E-MAIL7']
-      .map(function(k){return (r[k]||'').toString().trim();}).filter(Boolean);
-    mailMap[agent+'::'+buyer]={to:emails[0]||'',cc:emails.slice(1).join(';'),agent:agent,buyer:buyer};
-  });
-  mailMapGlobal=mailMap;
-  addLog('📧 E-mailマスター: '+emailRows.length+' 件','ok');
-  document.getElementById('emailFileStatus').textContent=
-    '📄 '+(fileNameOverride||(emailFileHandle?emailFileHandle.name:'E-mailマスター'))+'  ✅ 読み込み済み ('+emailRows.length+'件)';
-  if(window._pendingScheduleRows&&window._pendingScheduleRows.length>0){
-    buildBuyerData(window._pendingScheduleRows,mailMapGlobal);
-    addLog('✅ 完了 (D365+メールマスター統合)','ok');window._pendingScheduleRows=null;
-  }
 }
 
 /* ═══════════════════════════════════════════
