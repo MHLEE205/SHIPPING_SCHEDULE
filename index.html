@@ -82,9 +82,9 @@ tbody td:first-child{text-align:center;}
     <div class="card">
       <div class="card-title"><span class="step-num">1</span> データ読み込み</div>
       <div class="folder-row" style="margin-bottom:10px">
-        <button class="btn btn-primary" id="btnD365Load" onclick="loadFromD365()">🌐 COMPASSからデータ取得</button>
+        <button class="btn btn-primary" id="btnD365Load" onclick="loadFromD365()">🔄 COMPASS再取得</button>
         <div id="d365Status" style="font-size:13px;color:var(--text2)">
-          COMPASSに接続してスケジュールデータを取得します
+          ⟳ ログイン後に自動取得します
         </div>
       </div>
       <div class="folder-row" style="margin-top:6px">
@@ -202,13 +202,14 @@ function startTool(){
     }catch(e){}
   })();
   autoLoadEmailMaster();
+  loadFromD365();
 }
 
 LEENAI.init({
   sys:         'B-02',
   name:        '出荷スケジュール 送付ツール',
-  version:     '4.0',
-  date:        '2026-10-08',
+  version:     '4.1',
+  date:        '2026-10-16',
   desc:        'COMPASSデータとE-mailマスターから出荷スケジュールを一括送付します',
   onReady:     startTool,
   redirectUri: 'https://mhlee205.github.io/SHIPPING_SCHEDULE/',
