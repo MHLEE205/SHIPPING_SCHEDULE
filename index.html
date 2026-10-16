@@ -96,14 +96,14 @@ tbody td:first-child{text-align:center;}
     </div>
 
     <!-- STEP 2: バイヤー一覧 -->
-    <div id="summaryBar" style="display:flex">
+    <div id="summaryBar">
       <div class="stat-pill">バイヤー数 <strong id="statBuyers">0</strong></div>
       <div class="stat-pill">全データ <strong id="statRows">0</strong> 行</div>
       <div class="stat-pill">送付先あり <strong id="statMailable">0</strong></div>
       <div class="stat-pill">送付先なし <strong id="statNomail">0</strong></div>
     </div>
 
-    <div id="controls" style="display:flex">
+    <div id="controls">
       <input id="searchBox" type="text" placeholder="🔍 バイヤー名で絞り込み..." oninput="filterTable()">
       <button class="btn btn-ghost" onclick="selectAll(true)">✅ 全選択</button>
       <button class="btn btn-ghost" onclick="selectAll(false)">□ 全解除</button>
@@ -132,7 +132,7 @@ tbody td:first-child{text-align:center;}
   </main>
 
   <!-- 送信パネル -->
-  <div id="sendPanel" style="display:flex">
+  <div id="sendPanel">
     <div class="sel-info">選択中: <strong id="selCount">0</strong> 件</div>
     <button class="btn btn-ghost" onclick="previewSelected()">👁 内容確認</button>
     <button class="btn btn-ok" onclick="sendSelectedGraph()" id="btnGraphSend">📎 選択分を一括送付</button>
@@ -162,7 +162,7 @@ tbody td:first-child{text-align:center;}
 /* ── D365 / COMPASS ── */
 var D365 = {
   orgUrl:  'https://orgde512c6f.crm7.dynamics.com',
-  apiBase: 'https://orgde512c6f.crm7.dynamics.com/api/data/v9.0/',
+  apiBase: 'https://orgde512c6f.crm7.dynamics.com/api/data/v9.2/',
   scope:   'https://orgde512c6f.crm7.dynamics.com/user_impersonation offline_access',
 };
 
@@ -187,7 +187,7 @@ function startTool(){
 LEENAI.init({
   sys:         'B-02',
   name:        '出荷スケジュール 送付ツール',
-  version:     '4.3',
+  version:     '4.4',
   date:        '2026-10-16',
   desc:        'COMPASSデータと送付先マスターから出荷スケジュールを一括送付します',
   onReady:     startTool,
@@ -243,13 +243,15 @@ async function loadSalesMailMaster(){
 }
 
 /* ═══════════════════════════════════════════
-   Graph API: メール送信
+   メール内容 (件名・本文・CC・添付名) — 4経路共通、唯一の定義
 ═══════════════════════════════════════════ */
-async function sendMailGraph(b){
-  var grTok=await LEENAI.auth.token('graph');
-  if(!grTok) throw new Error('Outlookへの接続がありません。再ログインしてください。');
+var SIGNATURE_LINES=['Thanks,','Best regards,','',
+  'LEENEAR CORPORATION','TEL: +81-3-3528-9850  FAX: +81-3-3528-9851',
+  'E-mail: rcp@leenearcorp.com','Web: www.leenearcorp.com',
+  '─────────────────────────────────────────','✦ Powered by LEENAI Automation System'];
+
+function buildMailParts(b){
   var ymd=todayYMD();
-  var subject='[LEENEAR AutoSend] '+b.buyer+' - Shipping Schedule '+ymd;
   var contracts=[],poNos=[],seen=new Set(),poSameAsCo=true;
   b.rows.forEach(function(r){
     var co=(r.coNo||'').toString().trim(),po=(r.poNo||'').toString().trim();
@@ -260,24 +262,39 @@ async function sendMailGraph(b){
   var contractLine='',poLine='';
   if(poSameAsCo||poNos.length===0){contractLine=contracts.length?'  Contract / PO No. : '+contracts.join(' / '):'';}
   else{contractLine=contracts.length?'  Contract          : '+contracts.join(' / '):'';poLine=poNos.length?'  PO No.            : '+poNos.join(' / '):'';}
-  var infoBlock=[contractLine,poLine,'  Buyer             : '+b.buyer].filter(Boolean).join('\n');
-  var bodyText=['Dear Sir/Madam,','','Please kindly find the attached shipping schedule.','',infoBlock,'',
-    'Please feel free to contact us if you have any questions.','','Thanks,','Best regards,','',
-    'LEENEAR CORPORATION','TEL: +81-3-3528-9850  FAX: +81-3-3528-9851',
-    'E-mail: rcp@leenearcorp.com','Web: www.leenearcorp.com',
-    '─────────────────────────────────────────','✦ Powered by LEENAI Automation System'].join('\r\n');
-  var ccAddresses=[b.emailCC,'rcp@leenearcorp.com']
-    .flatMap(function(s){return (s||'').split(';');}).filter(Boolean)
-    .filter(function(v,i,a){return a.indexOf(v)===i;})
-    .map(function(addr){return {emailAddress:{address:addr}};});
-  var excelData=generateExcel(b);
-  var bytes2=new Uint8Array(excelData),binary='';
-  for(var i=0;i<bytes2.length;i+=8192){binary+=String.fromCharCode.apply(null,bytes2.subarray(i,i+8192));}
-  var base64=btoa(binary),fileName='Shipping Schedule_'+b.buyer+'_'+ymd+'.xlsx';
-  var message={subject:subject,body:{contentType:'Text',content:bodyText},
-    toRecipients:[{emailAddress:{address:b.emailTo}}],ccRecipients:ccAddresses,
-    attachments:[{'@odata.type':'#microsoft.graph.fileAttachment',name:fileName,
-      contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',contentBytes:base64}]};
+  var infoLines=[contractLine,poLine,'  Buyer             : '+b.buyer].filter(Boolean);
+  var bodyLines=['Dear Sir/Madam,','','Please kindly find the attached shipping schedule.','']
+    .concat(infoLines,['','Please feel free to contact us if you have any questions.',''],SIGNATURE_LINES);
+  var cc=[b.emailCC,'rcp@leenearcorp.com']
+    .flatMap(function(s){return (s||'').split(';');}).map(function(s){return s.trim();}).filter(Boolean)
+    .filter(function(v,i,a){return a.indexOf(v)===i;});
+  return {
+    subject:'[LEENEAR AutoSend] '+b.buyer+' - Shipping Schedule '+ymd,
+    bodyLines:bodyLines,
+    cc:cc,
+    fileName:'Shipping Schedule_'+b.buyer+'_'+ymd+'.xlsx'
+  };
+}
+
+/* ── Graph メッセージ (送付・下書き共通) ── */
+function buildGraphMessage(b){
+  var p=buildMailParts(b);
+  var bytes=new Uint8Array(generateExcel(b)),binary='';
+  for(var i=0;i<bytes.length;i+=8192){binary+=String.fromCharCode.apply(null,bytes.subarray(i,i+8192));}
+  return {subject:p.subject,body:{contentType:'Text',content:p.bodyLines.join('\r\n')},
+    toRecipients:[{emailAddress:{address:b.emailTo}}],
+    ccRecipients:p.cc.map(function(addr){return {emailAddress:{address:addr}};}),
+    attachments:[{'@odata.type':'#microsoft.graph.fileAttachment',name:p.fileName,
+      contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',contentBytes:btoa(binary)}]};
+}
+
+/* ═══════════════════════════════════════════
+   Graph API: メール送信
+═══════════════════════════════════════════ */
+async function sendMailGraph(b){
+  var grTok=await LEENAI.auth.token('graph');
+  if(!grTok) throw new Error('Outlookへの接続がありません。再ログインしてください。');
+  var message=buildGraphMessage(b);
   var resp=await fetch('https://graph.microsoft.com/v1.0/me/sendMail',{method:'POST',
     headers:{'Authorization':'Bearer '+grTok,'Content-Type':'application/json'},
     body:JSON.stringify({message:message,saveToSentItems:true})});
@@ -293,36 +310,7 @@ async function sendMailGraph(b){
 async function sendMailDraft(b){
   var grTok=await LEENAI.auth.token('graph');
   if(!grTok) throw new Error('Outlookへの接続がありません。再ログインしてください。');
-  var ymd=todayYMD();
-  var subject='[LEENEAR AutoSend] '+b.buyer+' - Shipping Schedule '+ymd;
-  var contracts=[],poNos=[],seen=new Set(),poSameAsCo=true;
-  b.rows.forEach(function(r){
-    var co=(r.coNo||'').toString().trim(),po=(r.poNo||'').toString().trim();
-    if(co&&!seen.has(co)){seen.add(co);contracts.push(co);}
-    if(po&&po!==co&&!poNos.includes(po)) poNos.push(po);
-    if(po&&po!==co) poSameAsCo=false;
-  });
-  var contractLine='',poLine='';
-  if(poSameAsCo||poNos.length===0){contractLine=contracts.length?'  Contract / PO No. : '+contracts.join(' / '):'';}
-  else{contractLine=contracts.length?'  Contract          : '+contracts.join(' / '):'';poLine=poNos.length?'  PO No.            : '+poNos.join(' / '):'';}
-  var infoBlock=[contractLine,poLine,'  Buyer             : '+b.buyer].filter(Boolean).join('\n');
-  var bodyText=['Dear Sir/Madam,','','Please kindly find the attached shipping schedule.','',infoBlock,'',
-    'Please feel free to contact us if you have any questions.','','Thanks,','Best regards,','',
-    'LEENEAR CORPORATION','TEL: +81-3-3528-9850  FAX: +81-3-3528-9851',
-    'E-mail: rcp@leenearcorp.com','Web: www.leenearcorp.com',
-    '─────────────────────────────────────────','✦ Powered by LEENAI Automation System'].join('\r\n');
-  var ccAddresses=[b.emailCC,'rcp@leenearcorp.com']
-    .flatMap(function(s){return (s||'').split(';');}).filter(Boolean)
-    .filter(function(v,i,a){return a.indexOf(v)===i;})
-    .map(function(addr){return {emailAddress:{address:addr}};});
-  var excelData=generateExcel(b);
-  var bytes2=new Uint8Array(excelData),binary='';
-  for(var i=0;i<bytes2.length;i+=8192){binary+=String.fromCharCode.apply(null,bytes2.subarray(i,i+8192));}
-  var base64=btoa(binary),fileName='Shipping Schedule_'+b.buyer+'_'+ymd+'.xlsx';
-  var message={subject:subject,body:{contentType:'Text',content:bodyText},
-    toRecipients:[{emailAddress:{address:b.emailTo}}],ccRecipients:ccAddresses,
-    attachments:[{'@odata.type':'#microsoft.graph.fileAttachment',name:fileName,
-      contentType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',contentBytes:base64}]};
+  var message=buildGraphMessage(b);
   var resp=await fetch('https://graph.microsoft.com/v1.0/me/messages',{method:'POST',
     headers:{'Authorization':'Bearer '+grTok,'Content-Type':'application/json'},body:JSON.stringify(message)});
   if(resp.status===201){var draft=await resp.json();return draft.id;}
@@ -684,19 +672,15 @@ function generateExcel(b){
    mailto / 送付
 ═══════════════════════════════════════════ */
 function buildMailto(b){
-  var ymd=todayYMD();
-  var subject='[LEENEAR AutoSend] '+b.buyer+' - Shipping Schedule '+ymd;
-  var body='Dear Sir/Madam,\r\n\r\nPlease kindly find the latest shipping schedule for "'+b.buyer+'"\r\n\r\nThanks,\r\nBest regards,';
-  var cc=[b.emailCC,'rcp@leenearcorp.com'].flatMap(function(s){return (s||'').split(';');})
-    .filter(Boolean).filter(function(v,i,a){return a.indexOf(v)===i;}).join(';');
-  return 'mailto:'+encodeURIComponent(b.emailTo)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body)+(cc?'&cc='+encodeURIComponent(cc):'');
+  var p=buildMailParts(b);
+  return 'mailto:'+encodeURIComponent(b.emailTo)+'?subject='+encodeURIComponent(p.subject)+'&body='+encodeURIComponent(p.bodyLines.join('\r\n'))+(p.cc.length?'&cc='+encodeURIComponent(p.cc.join(';')):'');
 }
 
 function downloadExcel(b){
   var data=generateExcel(b);
   var blob=new Blob([data],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   var url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download='Shipping Schedule_'+b.buyer+'_'+todayYMD()+'.xlsx';a.click();
+  a.href=url;a.download=buildMailParts(b).fileName;a.click();
   setTimeout(function(){URL.revokeObjectURL(url);},5000);
 }
 
@@ -723,35 +707,18 @@ async function sendSelected(){
 ═══════════════════════════════════════════ */
 function previewOne(idx){
   var b=filteredData[idx];currentModalBuyer=b;
-  var ymd=todayYMD();
-  var subject='[LEENEAR AutoSend] '+b.buyer+' - Shipping Schedule '+ymd;
-  var cc=[b.emailCC,'rcp@leenearcorp.com'].flatMap(function(s){return (s||'').split(';');})
-    .filter(Boolean).filter(function(v,i,a){return a.indexOf(v)===i;}).join('、');
+  var p=buildMailParts(b);
   document.getElementById('modalTitle').textContent='メール確認 — '+b.buyer;
   var rows_preview=b.rows.slice(0,5).map(function(r){
     return '<tr><td>'+escHtml(r.blDate)+'</td><td>'+escHtml(r.eta)+'</td><td>'+escHtml(r.invoiceNo)+'</td><td>'+escHtml(r.carrier)+'</td><td>'+escHtml(r.vessel)+'</td><td>'+escHtml(r.pol)+'</td><td>'+escHtml(r.pod)+'</td><td>'+escHtml(r.container)+'</td></tr>';
   }).join('');
   var more=b.rows.length>5?'<tr><td colspan="8" style="text-align:center;color:var(--text3);font-size:.75rem">... 他 '+(b.rows.length-5)+' 行</td></tr>':'';
-  var mc=[],mp=[],ms=new Set(),mpsa=true;
-  b.rows.forEach(function(r){
-    var co=(r.coNo||'').toString().trim(),po=(r.poNo||'').toString().trim();
-    if(co&&!ms.has(co)){ms.add(co);mc.push(co);}if(po&&po!==co&&!mp.includes(po)) mp.push(po);if(po&&po!==co) mpsa=false;
-  });
-  var mcl='',mpl='';
-  if(mpsa||mp.length===0){mcl=mc.length?'  Contract / PO No. : '+mc.join(' / '):''}
-  else{mcl=mc.length?'  Contract          : '+mc.join(' / '):'';mpl=mp.length?'  PO No.            : '+mp.join(' / '):'';}
-  var previewBody=['Dear Sir/Madam,','','Please kindly find the attached shipping schedule.','',
-    ...[mcl,mpl,'  Buyer             : '+b.buyer].filter(Boolean),
-    '','Please feel free to contact us if you have any questions.','','Thanks,','Best regards,','',
-    'LEENEAR CORPORATION','TEL: +81-3-3528-9850  FAX: +81-3-3528-9851',
-    'E-mail: rcp@leenearcorp.com','Web: www.leenearcorp.com',
-    '─────────────────────────────────────────','✦ Powered by LEENAI Automation System'].join('\n');
   document.getElementById('modalBody').innerHTML=
     '<div class="modal-field"><label>TO</label><div class="val">'+escHtml(b.emailTo||'（送付先なし）')+'</div></div>'+
-    '<div class="modal-field"><label>CC</label><div class="val">'+escHtml(cc||'—')+'</div></div>'+
-    '<div class="modal-field"><label>件名</label><div class="val">'+escHtml(subject)+'</div></div>'+
-    '<div class="modal-field"><label>本文</label><div class="val" style="white-space:pre-line;font-size:.8rem">'+escHtml(previewBody)+'</div></div>'+
-    '<div class="modal-field"><label>添付ファイル</label><div class="val">📎 Shipping Schedule_'+escHtml(b.buyer)+'_'+ymd+'.xlsx　（'+b.rows.length+'行）</div></div>'+
+    '<div class="modal-field"><label>CC</label><div class="val">'+escHtml(p.cc.join('、')||'—')+'</div></div>'+
+    '<div class="modal-field"><label>件名</label><div class="val">'+escHtml(p.subject)+'</div></div>'+
+    '<div class="modal-field"><label>本文</label><div class="val" style="white-space:pre-line;font-size:.8rem">'+escHtml(p.bodyLines.join('\n'))+'</div></div>'+
+    '<div class="modal-field"><label>添付ファイル</label><div class="val">📎 '+escHtml(p.fileName)+'　（'+b.rows.length+'行）</div></div>'+
     '<div class="modal-field"><label>スケジュール (BL DATE昇順・先頭5件)</label><div style="overflow-x:auto">'+
     '<table style="width:100%;font-size:.72rem;border-collapse:collapse">'+
     '<thead style="background:var(--frame);color:var(--text)"><tr><th style="padding:5px 8px">BL DATE</th><th>ETA</th><th>Invoice</th><th>Carrier</th><th>Vessel</th><th>POL</th><th>POD</th><th>Container</th></tr></thead>'+
