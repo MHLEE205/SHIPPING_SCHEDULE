@@ -187,8 +187,8 @@ function startTool(){
 LEENAI.init({
   sys:         'B-02',
   name:        '出荷スケジュール 送付ツール',
-  version:     '4.4',
-  date:        '2026-10-16',
+  version:     '4.5',
+  date:        '2026-10-28',
   desc:        'COMPASSデータと送付先マスターから出荷スケジュールを一括送付します',
   onReady:     startTool,
   redirectUri: 'https://mhlee205.github.io/SHIPPING_SCHEDULE/',
@@ -408,11 +408,26 @@ async function fetchContainerInfos(bookingGuids,token){
   for(var i=0;i<bookingGuids.length;i+=CHUNK){
     var chunk=bookingGuids.slice(i,i+CHUNK);
     var filter=chunk.map(function(g){return '_crcf9_booking_id_value eq '+g;}).join(' or ');
-    var url2='crcf9_container_informations?$filter='+filter+'&$select=crcf9_container_informationid,_crcf9_booking_id_value,crcf9_n_w,crcf9_container_no,crcf9_type&$expand=crcf9_item_id($select=cr49f_item,cr49f_item_name),crcf9_sale_detail_id($select=cr49f_price,cr49f_quantity)';
+    var url2='crcf9_container_informations?$filter='+filter+'&$select=crcf9_container_informationid,_crcf9_booking_id_value,crcf9_n_w,crcf9_container_no,crcf9_type&$expand=crcf9_item_id($select=cr49f_item,cr49f_item_name),crcf9_sale_detail_id($select=cr49f_price,cr49f_quantity,cr49f_price_yen,cr49f_sale_detailid)';
     var rows=await d365Get(url2,token);
     all.push.apply(all,Array.isArray(rows)?rows:[rows]);
     setProgress(50+Math.round(30*(i/bookingGuids.length)),'コンテナ情報取得中 '+all.length+'件...');
   }
+  // 円単価の補完 (v4.5) — 一覧の $expand では cr49f_price_yen が空で来ることがある (DOC-Z-06 §5-1) → USD 単価なしの明細だけ 1 件ずつ取得
+  var need={};
+  all.forEach(function(ci){
+    var sd=ci.crcf9_sale_detail_id;
+    if(sd&&sd.cr49f_sale_detailid&&(sd.cr49f_price==null||Number(sd.cr49f_price)===0)&&sd.cr49f_price_yen==null)
+      (need[sd.cr49f_sale_detailid]=need[sd.cr49f_sale_detailid]||[]).push(sd);
+  });
+  var sdIds=Object.keys(need);
+  for(var k=0;k<sdIds.length;k++){
+    try{
+      var d=await d365Get('cr49f_sale_details('+sdIds[k]+')?$select=cr49f_price_yen',token);
+      need[sdIds[k]].forEach(function(sd){sd.cr49f_price_yen=d.cr49f_price_yen;});
+    }catch(e){addLog('⚠️ 円単価取得失敗: '+sdIds[k],'warn');}
+  }
+  addLog('💴 円単価 補完取得: '+sdIds.length+' 件','');
   addLog('✅ Step3完了: コンテナ情報 '+all.length+' 行','ok');
   return all;
 }
@@ -444,23 +459,28 @@ function buildScheduleRowsFromD365(bookings,containerInfos){
     cts.forEach(function(ci){
       var item=ci.crcf9_item_id&&ci.crcf9_item_id.cr49f_item||'';
       var price=ci.crcf9_sale_detail_id&&ci.crcf9_sale_detail_id.cr49f_price!=null?ci.crcf9_sale_detail_id.cr49f_price:'';
+      // 単価 (v4.5): USD (MT 単価) があればそのまま (v4.4 と同じキー) / なければ円 (KG 単価, COMPASS の値そのまま)
+      var yen=ci.crcf9_sale_detail_id&&ci.crcf9_sale_detail_id.cr49f_price_yen!=null?ci.crcf9_sale_detail_id.cr49f_price_yen:null,up;
+      if(price!==''&&Number(price)!==0) up={cur:'USD',v:Number(price)};
+      else if(yen!=null&&Number(yen)!==0){price='JPY'+yen;up={cur:'JPY',v:Number(yen)};}
+      else up={cur:'',v:null};
       var qty=Number(ci.crcf9_sale_detail_id&&ci.crcf9_sale_detail_id.cr49f_quantity||0);
       var nwKg=ci.crcf9_n_w!=null?Number(ci.crcf9_n_w):0;
       var key=item+'||'+price;
-      if(!comboMap[key]) comboMap[key]={item:item,price:price,qty:qty,netWkg:0};
+      if(!comboMap[key]) comboMap[key]={item:item,price:price,up:up,qty:qty,netWkg:0};
       comboMap[key].netWkg+=nwKg;
     });
     var totalNWkg=Object.values(comboMap).reduce(function(s,c){return s+c.netWkg;},0);
     if(totalNWkg===0&&containerCount===0) return;
-    var coNo=sc.cr49f_sale_contract_no||'',nwMap={},qtyMap={};
+    var coNo=sc.cr49f_sale_contract_no||'',nwMap={},qtyMap={},upMap={};
     Object.values(comboMap).forEach(function(combo){
       var key=coNo+'||'+combo.item+'||'+combo.price;
-      nwMap[key]=Math.round(combo.netWkg/10)/100;qtyMap[key]=combo.qty;
+      nwMap[key]=Math.round(combo.netWkg/10)/100;qtyMap[key]=combo.qty;upMap[key]=combo.up;
     });
     rows.push({buyer:buyerName,agent:agentName,invoiceNo:bk.cr49f_invoice_no||'',
       blNo:bk.cr49f_bl_number||'',bookingNo:bk.cr49f_booking_no||'',vessel:bk.cr49f_main_ship_name||'',
       carrier:carrier,pol:pol,pod:pod,blDate:blDate,blDateRaw:blDateRaw,eta:eta,etdRaw:etdRaw,
-      coNo:coNo,poNo:sc.cr49f_po_no||'',container:String(containerCount),nwMap:nwMap,qtyMap:qtyMap});
+      coNo:coNo,poNo:sc.cr49f_po_no||'',container:String(containerCount),nwMap:nwMap,qtyMap:qtyMap,upMap:upMap});
   });
   rows.sort(function(a,b){
     var da=a.blDateRaw||a.etdRaw,db=b.blDateRaw||b.etdRaw;
@@ -615,9 +635,12 @@ function generateExcel(b){
   var setN=function(addr,v,s){ws[addr]={v:Number(v)||0,t:'n',s:s||{}};};
   var combos=[],seen=new Set();
   b.rows.forEach(function(r){Object.keys(r.nwMap).forEach(function(key){
-    if(!seen.has(key)){seen.add(key);var p=key.split('||');combos.push({co:p[0],item:p[1],price:Number(p[2]),qty:r.qtyMap[key]||0,po:r.poNo||''});}
+    if(!seen.has(key)){seen.add(key);var p=key.split('||');combos.push({key:key,co:p[0],item:p[1],up:(r.upMap||{})[key]||{cur:'',v:null},qty:r.qtyMap[key]||0,po:r.poNo||''});}
   });});
-  combos.sort(function(a,b2){return a.co.localeCompare(b2.co)||a.item.localeCompare(b2.item)||a.price-b2.price;});
+  // 並び: 契約 → 品目 → 単価 (単価なしは後ろ) — キーは行データのものをそのまま使う (v4.5, 組み立て直さない)
+  var upCmp=function(a,b2){var x=a.up.v,y=b2.up.v;if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;return x-y;};
+  combos.sort(function(a,b2){return a.co.localeCompare(b2.co)||a.item.localeCompare(b2.item)||upCmp(a,b2);});
+  var yenFmt=function(v){return '¥'+(Math.round(Number(v)*100)/100).toLocaleString('en-US',{maximumFractionDigits:2})+'/KG';};
   var N_FIXED=10;
   setC(enc(0,0),'Buyer',{font:fnt(true,NAVY,9),alignment:aln('left')});
   setC(enc(0,1),b.buyer,{font:fnt(true,NAVY,11),alignment:aln('left')});
@@ -627,9 +650,12 @@ function generateExcel(b){
     var row=1+bi;
     setC(enc(row,9),lbl,{font:fnt(true,WHITE,8),fill:fill(HBLUE),alignment:aln('center'),border:bdr()});
     combos.forEach(function(combo,ci){
-      var v=bi===0?combo.co:bi===1?combo.po:bi===2?combo.item:combo.price;
+      var v=bi===0?combo.co:bi===1?combo.po:bi===2?combo.item:combo.up.v;
       var col=N_FIXED+ci;
-      if(bi===3){setN(enc(row,col),v,{font:fnt(false,NAVY,8),fill:fill(LBLUE),alignment:aln('center'),border:bdr(),numFmt:'#,##0'});}
+      if(bi===3){
+        if(combo.up.cur==='USD') setN(enc(row,col),v,{font:fnt(false,NAVY,8),fill:fill(LBLUE),alignment:aln('center'),border:bdr(),numFmt:'#,##0'});
+        else setC(enc(row,col),combo.up.cur==='JPY'?yenFmt(v):'',{font:fnt(false,NAVY,8),fill:fill(LBLUE),alignment:aln('center'),border:bdr()});
+      }
       else{setC(enc(row,col),String(v||''),{font:fnt(bi===0,NAVY,8),fill:fill(LBLUE),alignment:aln('center'),border:bdr()});}
     });
   });
@@ -645,7 +671,7 @@ function generateExcel(b){
       setC(enc(row,ci),String(v||''),{font:fnt(ci===0,'000000',8),fill:fill(bg),alignment:aln('center'),border:bdr()});
     });
     combos.forEach(function(combo,ci){
-      var col=N_FIXED+ci,key=combo.co+'||'+combo.item+'||'+combo.price,nw=r.nwMap[key];
+      var col=N_FIXED+ci,key=combo.key,nw=r.nwMap[key];
       if(nw){setN(enc(row,col),Math.round(Number(nw)*100)/100,{font:fnt(false,'000000',8),fill:fill(bg),alignment:aln('right'),border:bdr(),numFmt:'#,##0.00'});}
       else{ws[enc(row,col)]={v:'',t:'s',s:{fill:fill(bg),border:bdr()}};}
     });
@@ -653,7 +679,7 @@ function generateExcel(b){
   var TOTAL_ROW=DATA_START+b.rows.length;
   for(var c2=0;c2<N_FIXED;c2++){ws[enc(TOTAL_ROW,c2)]={v:c2===0?'Total':'',t:'s',s:{font:fnt(true,NAVY,9),fill:fill(TOTAL),alignment:aln(c2===0?'center':'left'),border:bdrMed()}};}
   combos.forEach(function(combo,ci){
-    var key=combo.co+'||'+combo.item+'||'+combo.price;
+    var key=combo.key;
     var total=b.rows.reduce(function(sum,r){return sum+(Number(r.nwMap[key])||0);},0);
     setN(enc(TOTAL_ROW,N_FIXED+ci),Math.round(total*100)/100,{font:fnt(true,NAVY,9),fill:fill(TOTAL),alignment:aln('right'),border:bdrMed(),numFmt:'#,##0.00'});
   });
